@@ -520,6 +520,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
             hotkeyModifiers = value & (MOD_CONTROL | MOD_SHIFT | MOD_ALT | MOD_WIN);
         RegCloseKey(configKey);
     }
+    // CI: imitate a running installation while the new setup replaces it.
+    if (commandLine && wcsstr(commandLine,L"--hold-install-test")) {
+        HANDLE stop = CreateEventW(nullptr,TRUE,FALSE,
+            L"Local\\Screenshot.SanderStripa.Exit");
+        if(!stop) { CoUninitialize(); return 18; }
+        WaitForSingleObject(stop,30000);
+        CloseHandle(stop);
+        CoUninitialize();
+        return 0;
+    }
     if (commandLine && wcsstr(commandLine, L"--self-test")) {
         int result = selfTest();
         CoUninitialize();
