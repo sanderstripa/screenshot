@@ -467,6 +467,19 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     }
     HRESULT co=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
     if(FAILED(co))return 2;
+    if (commandLine && wcsstr(commandLine,L"--integration-test")) {
+        Installer probe;
+        probe.instance=instance;
+        probe.installationThread();
+        wchar_t local[MAX_PATH]{};
+        if(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)!=S_OK)
+            {CoUninitialize();return 11;}
+        const std::wstring installed=std::wstring(local)+L"\\Programs\\Screenshot\\Screenshot.exe";
+        DWORD attrs=GetFileAttributesW(installed.c_str());
+        int testResult=(probe.result.load()==0 && attrs!=INVALID_FILE_ATTRIBUTES)?0:12;
+        CoUninitialize();
+        return testResult;
+    }
     Installer setup;setup.instance=instance;
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,setup.factory.GetAddressOf());
     DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),
