@@ -58,7 +58,7 @@ struct Installer {
     ComPtr<ID2D1HwndRenderTarget> target;
     ComPtr<ID2D1SolidColorBrush> brush;
     ComPtr<IDWriteFactory> fonts;
-    ComPtr<IDWriteTextFormat> regular, medium, small, headline;
+    ComPtr<IDWriteTextFormat> regular, medium, smallText, headline;
     HICON icon = nullptr;
 
     void fill(D2D1_RECT_F rect,D2D1_COLOR_F c) {
@@ -112,7 +112,7 @@ struct Installer {
             D2D1::ColorF(.53f,.68f,.89f,.38f));
     }
     void header() {
-        label(L"Screenshot",64,17,220,32,small.Get(),D2D1::ColorF(.96f,.98f,1));
+        label(L"Screenshot",64,17,220,32,smallText.Get(),D2D1::ColorF(.96f,.98f,1));
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
         brush->SetColor(D2D1::ColorF(.70f,.79f,.91f));
         target->DrawLine(D2D1::Point2F(553,27),D2D1::Point2F(564,27),brush.Get(),1.2f);
@@ -205,7 +205,7 @@ struct Installer {
                 listening?.67f:.50f,listening?1.0f:.68f));
             label(listening?L"Нажмите клавишу…":config.title,57,198,520,37,
                 medium.Get(),white);
-            if(listening) label(L"Esc — отмена",40,262,300,30,small.Get(),muted);
+            if(listening) label(L"Esc — отмена",40,262,300,30,smallText.Get(),muted);
             button(primaryRect(step),L"Далее  →");
         }
         if(step==Confirm) {
@@ -477,7 +477,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,17,L"ru-ru",&setup.medium);
     setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_NORMAL,
-        DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,14,L"ru-ru",&setup.small);
+        DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,14,L"ru-ru",&setup.smallText);
     setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,30,L"ru-ru",&setup.headline);
     setup.icon=LoadIconW(instance,MAKEINTRESOURCEW(101));
@@ -502,7 +502,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     while(setup.working.load())Sleep(40);
     setup.brush.Reset();setup.target.Reset();
     setup.icon=nullptr;
-    setup.regular.Reset();setup.medium.Reset();setup.small.Reset();setup.headline.Reset();
+    setup.regular.Reset();setup.medium.Reset();setup.smallText.Reset();setup.headline.Reset();
     setup.fonts.Reset();setup.factory.Reset();
     CoUninitialize();
     return 0;
