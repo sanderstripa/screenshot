@@ -10,12 +10,6 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - name: Generate approved multi-resolution Screenshot icon
-        shell: pwsh
-        run: |
-          python -m pip install --quiet Pillow
-          python scripts/make_icon.py assets
-          if (!(Test-Path assets\Screenshot.ico)) { throw "Icon generation failed" }
       - name: Configure x64 native Windows
         run: cmake -S . -B build -A x64
       - name: Compile screenshot app
@@ -64,6 +58,11 @@ jobs:
           if (Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe") {
             throw "Executable remains after uninstall"
           }
+      - name: Verify actual saved PNG and clipboard
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ".\build\Release\Screenshot.exe" -ArgumentList "--self-test-output" -WindowStyle Hidden -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "PNG disk and clipboard test failed: $($p.ExitCode)" }
       - name: Build release payload
         shell: pwsh
         run: |
@@ -74,14 +73,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.3.1"
+          $tag = "v0.4.0-rc.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.3.0" `
+              --title "Screenshot v0.4.0 candidate" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --latest
+              --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }

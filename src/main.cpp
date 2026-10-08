@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <string>
+#include <shlobj.h>
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "windowscodecs.lib")
@@ -163,6 +165,36 @@ std::vector<uint8_t> encodePNG(const Image& image) {
     return bytes;
 }
 
+// Write the same encoded PNG used by the clipboard, with a collision-proof name.
+bool savePNG(const std::vector<uint8_t>& png, std::wstring& filename) {
+    wchar_t profile[32768]{};
+    if (!GetEnvironmentVariableW(L"USERPROFILE", profile, 32768)) return false;
+    std::wstring dir = std::wstring(profile) + L"\\Pictures\\Screenshot";
+    int code = SHCreateDirectoryExW(nullptr, dir.c_str(), nullptr);
+    if (code != ERROR_SUCCESS && code != ERROR_ALREADY_EXISTS && code != ERROR_FILE_EXISTS)
+        return false;
+    SYSTEMTIME time{}; GetLocalTime(&time);
+    wchar_t name[100]{};
+    swprintf_s(name, L"\\Screenshot-%04u-%02u-%02u_%02u-%02u-%02u-%03u",
+        time.wYear,time.wMonth,time.wDay,time.wHour,time.wMinute,time.wSecond,time.wMilliseconds);
+    for (int i=0;i<1000;++i) {
+        filename=dir+name+(i ? L"-"+std::to_wstring(i) : L"")+L".png";
+        HANDLE file=CreateFileW(filename.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,
+            FILE_ATTRIBUTE_NORMAL,nullptr);
+        if(file==INVALID_HANDLE_VALUE) {
+            if(GetLastError()==ERROR_FILE_EXISTS)continue;
+            return false;
+        }
+        DWORD written=0;
+        bool ok=WriteFile(file,png.data(),static_cast<DWORD>(png.size()),&written,nullptr)
+            && written==png.size() && FlushFileBuffers(file);
+        CloseHandle(file);
+        if(!ok)DeleteFileW(filename.c_str());
+        return ok;
+    }
+    return false;
+}
+
 HGLOBAL clipboardBlock(const void* data, size_t count) {
     HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, count);
     if (!h) return nullptr;
@@ -173,9 +205,14 @@ HGLOBAL clipboardBlock(const void* data, size_t count) {
     return h;
 }
 
-bool publishClipboard(HWND owner, const Image& styled) {
-    auto png = encodePNG(styled);
-    if (png.empty() || !OpenClipboard(owner)) return false;
+bool publishClipboard(HWND owner, const Image& styled, const std::vector<uint8_t>& png) {
+    if (png.empty()) return false;
+    bool opened=false;
+    for(int attempt=0;attempt<20;++attempt) {
+        if(OpenClipboard(owner)){opened=true;break;}
+        Sleep(25);
+    }
+    if(!opened)return false;
     EmptyClipboard();
     bool success = false;
     UINT pngFormat = RegisterClipboardFormatW(L"PNG");
@@ -311,6 +348,7 @@ struct App {
         float progress = std::clamp(float(GetTickCount64() - animationStart)
             / float(finishing ? FADE_OUT_MS : FADE_IN_MS), 0.0f, 1.0f);
         float opacity = finishing ? (1 - progress) : progress;
+        target->SetDpi(96,96);
         target->BeginDraw();
         target->DrawBitmap(bitmap.Get());
         brush->SetColor(D2D1::ColorF(0.015f, .025f, .045f, .57f * opacity));
@@ -387,14 +425,21 @@ struct App {
         if (!hasArea(area)) { dismiss(); return; }
         // The clipboard is populated before the 125-ms success animation.
         Image styled = styleScreenshot(desktop, desktopRect, area);
-        if (styled.valid() && publishClipboard(overlay, styled)) {
+        auto png=encodePNG(styled);
+        std::wstring filename;
+        bool saved=styled.valid() && !png.empty() && savePNG(png,filename);
+        bool copied=saved && publishClipboard(overlay,styled,png);
+        if (saved && copied) {
             selection = area;
             finishing = true;
             animationStart = GetTickCount64();
             InvalidateRect(overlay, nullptr, FALSE);
         } else {
-            MessageBeep(MB_ICONWARNING);
             dismiss();
+            MessageBoxW(nullptr, saved
+                ? L"PNG сохранён в Pictures\\Screenshot, но буфер обмена занят. Повторите захват."
+                : L"Не удалось сохранить PNG в Pictures\\Screenshot. Проверьте доступ к папке.",
+                L"Screenshot", MB_OK|MB_ICONWARNING);
         }
     }
 
@@ -486,7 +531,7 @@ LRESULT CALLBACK controllerProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
-int selfTest() {
+int selfTest(bool outputTest=false) {
     Image sample{};
     sample.width = sample.height = 32;
     sample.bgra.resize(32 * 32 * 4, 0xFF);
@@ -494,6 +539,20 @@ int selfTest() {
     Image styled = styleScreenshot(sample, rect, rect);
     auto png = encodePNG(styled);
     constexpr uint8_t signature[] = {137,80,78,71,13,10,26,10};
+    if(outputTest) {
+        std::wstring file;
+        if(!savePNG(png,file) || !publishClipboard(nullptr,styled,png))return 4;
+        // Decode the actual saved file rather than merely checking a PNG signature.
+        ComPtr<IWICImagingFactory> factory;
+        ComPtr<IWICBitmapDecoder> decoder;
+        ComPtr<IWICBitmapFrameDecode> frame;
+        UINT w=0,h=0;
+        if(FAILED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,
+            IID_PPV_ARGS(&factory))) || FAILED(factory->CreateDecoderFromFilename(
+            file.c_str(),nullptr,GENERIC_READ,WICDecodeMetadataCacheOnLoad,&decoder)) ||
+            FAILED(decoder->GetFrame(0,&frame)) || FAILED(frame->GetSize(&w,&h)) ||
+            w!=static_cast<UINT>(styled.width) || h!=static_cast<UINT>(styled.height))return 5;
+    }
     return styled.valid() && png.size() > 8 &&
         std::memcmp(png.data(), signature, sizeof(signature)) == 0 ? 0 : 1;
 }
@@ -531,7 +590,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
         return 0;
     }
     if (commandLine && wcsstr(commandLine, L"--self-test")) {
-        int result = selfTest();
+        int result = selfTest(wcsstr(commandLine,L"--self-test-output")!=nullptr);
         CoUninitialize();
         return result;
     }

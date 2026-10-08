@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cwchar>
 #include <vector>
+#include <wincodec.h>
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"dwrite.lib")
 #pragma comment(lib,"shell32.lib")
@@ -39,7 +40,7 @@ bool inside(POINT p, D2D1_RECT_F r) {
     return p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
 }
 D2D1_RECT_F primaryRect(Step s) {
-    if (s == Welcome) return D2D1::RectF(417,314,607,368);
+    if (s == Welcome) return D2D1::RectF(219,314,421,368);
     if (s == Hotkey) return D2D1::RectF(424,327,603,374);
     if (s == Confirm) return D2D1::RectF(410,320,602,372);
     return D2D1::RectF(219,313,421,366);
@@ -65,6 +66,8 @@ struct Installer {
     ComPtr<ID2D1Factory> factory;
     ComPtr<ID2D1HwndRenderTarget> target;
     ComPtr<ID2D1SolidColorBrush> brush;
+    ComPtr<ID2D1Bitmap> artwork;
+    std::thread worker;
     ComPtr<IDWriteFactory> fonts;
     ComPtr<IDWriteTextFormat> regular, medium, smallText, headline;
     HICON icon = nullptr;
@@ -127,37 +130,17 @@ struct Installer {
         target->DrawLine(D2D1::Point2F(598,20),D2D1::Point2F(608,30),brush.Get(),1.25f);
         target->DrawLine(D2D1::Point2F(608,20),D2D1::Point2F(598,30),brush.Get(),1.25f);
     }
-    void logo(float x,float y,float size) {
-        // Layers and two white crop corners echo the approved Screenshot icon.
-        rounded(D2D1::RectF(x+size*.24f,y+size*.10f,x+size*.91f,y+size*.76f),
-            size*.10f,D2D1::ColorF(.26f,.36f,.50f,.56f));
-        rounded(D2D1::RectF(x+size*.10f,y+size*.24f,x+size*.78f,y+size*.92f),
-            size*.11f,D2D1::ColorF(.76f,.83f,.92f));
-        brush->SetColor(D2D1::ColorF(.11f,.49f,.99f));
-        target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x+size*.75f,y+size*.88f),
-            size*.22f,size*.22f),brush.Get());
-        brush->SetColor(D2D1::ColorF(.99f,.99f,1));
-        float thick=std::max(3.0f,size*.065f);
-        target->DrawLine(D2D1::Point2F(x+size*.17f,y+size*.42f),
-                         D2D1::Point2F(x+size*.17f,y+size*.32f),brush.Get(),thick);
-        target->DrawLine(D2D1::Point2F(x+size*.17f,y+size*.32f),
-                         D2D1::Point2F(x+size*.28f,y+size*.32f),brush.Get(),thick);
-        target->DrawLine(D2D1::Point2F(x+size*.68f,y+size*.82f),
-                         D2D1::Point2F(x+size*.75f,y+size*.82f),brush.Get(),thick);
-        target->DrawLine(D2D1::Point2F(x+size*.75f,y+size*.82f),
-                         D2D1::Point2F(x+size*.75f,y+size*.74f),brush.Get(),thick);
-    }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
         rounded(rect,13,D2D1::ColorF(active?.055f:.13f,active?.39f:.16f,
             active?.95f:.21f,1));
         outline(rect,13,D2D1::ColorF(.47f,.72f,1,.34f));
-        label(text,rect.left,rect.top+13,rect.right-rect.left,30,medium.Get(),
+        label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,medium.Get(),
             D2D1::ColorF(1,1,1),DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
         rounded(rect,12,D2D1::ColorF(.12f,.17f,.25f,.94f));
         outline(rect,12,D2D1::ColorF(.53f,.66f,.83f,.36f));
-        label(text,rect.left,rect.top+12,rect.right-rect.left,30,regular.Get(),
+        label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
             D2D1::ColorF(.91f,.94f,1),DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     void ring(float x,float y,bool warning=false,bool green=false) {
@@ -179,7 +162,7 @@ struct Installer {
         const auto white=D2D1::ColorF(.96f,.97f,1);
         const auto muted=D2D1::ColorF(.72f,.79f,.89f);
         if(step==Welcome) {
-            label(L"Screenshot",252,133,330,60,headline.Get(),white);
+            label(L"Screenshot",40,231,560,50,headline.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
             button(primaryRect(step),L"Установить  →");
         }
         if(step==Installing) {
@@ -219,7 +202,7 @@ struct Installer {
             ring(320,112,true);
             label(L"Заменить системное действие?",25,172,590,50,headline.Get(),white,
                 DWRITE_TEXT_ALIGNMENT_CENTER);
-            label(L"Print Screen сейчас открывает «Ножницы».",45,232,550,32,
+            label(L"Изменить действие Print Screen в Windows?",45,232,550,32,
                 regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
             label(L"Назначить эту клавишу Screenshot?",45,264,550,32,
                 regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -233,7 +216,9 @@ struct Installer {
             std::wstring note = needsRelogin
                 ? L"Для активации клавиши перезапустите сеанс Windows."
                 : L"Горячая клавиша: "+config.title;
-            label(note,30,252,580,46,regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
+            label(note,30,246,580,32,regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
+            label(L"PNG → Pictures\\Screenshot + буфер обмена",30,278,580,28,
+                smallText.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
             button(primaryRect(step),L"Закрыть");
         }
     }
@@ -250,21 +235,27 @@ struct Installer {
                 EndPaint(hwnd,&ps);return;
             }
             target->CreateSolidColorBrush(D2D1::ColorF(1,1,1),&brush);
+            ComPtr<IWICImagingFactory> imaging;
+            ComPtr<IWICBitmap> bitmap;
+            if(SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,
+                IID_PPV_ARGS(&imaging))) && SUCCEEDED(imaging->CreateBitmapFromHICON(largeIcon,&bitmap))) {
+                ComPtr<IWICFormatConverter> converter;
+                if(SUCCEEDED(imaging->CreateFormatConverter(&converter)) && SUCCEEDED(converter->Initialize(
+                    bitmap.Get(),GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,nullptr,0,
+                    WICBitmapPaletteTypeCustom)))target->CreateBitmapFromWicBitmap(converter.Get(),nullptr,&artwork);
+            }
         }
         target->BeginDraw();
-        target->SetDpi(96,96);
-        target->SetTransform(D2D1::Matrix3x2F::Scale(scale,scale));
+        target->SetDpi(96*scale,96*scale);
+        target->SetTransform(D2D1::Matrix3x2F::Identity());
         target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         background();header();content();
-        HRESULT hr=target->EndDraw();
-        if(hr==D2DERR_RECREATE_TARGET){brush.Reset();target.Reset();}
-        // The approved embedded icon, rather than Inno Setup's stock setup artwork.
-        if(icon) DrawIconEx(ps.hdc,int(17*scale),int(13*scale),icon,
-                int(31*scale),int(31*scale),0,nullptr,DI_NORMAL);
-        if(step==Welcome && largeIcon) {
-            DrawIconEx(ps.hdc,int(60*scale),int(109*scale),largeIcon,
-                int(160*scale),int(160*scale),0,nullptr,DI_NORMAL);
+        if(artwork) {
+            target->DrawBitmap(artwork.Get(),D2D1::RectF(18,14,46,42));
+            if(step==Welcome)target->DrawBitmap(artwork.Get(),D2D1::RectF(254,83,386,215));
         }
+        HRESULT hr=target->EndDraw();
+        if(hr==D2DERR_RECREATE_TARGET){artwork.Reset();brush.Reset();target.Reset();}
         EndPaint(hwnd,&ps);
     }
     void redraw() { InvalidateRect(hwnd,nullptr,FALSE); }
@@ -393,7 +384,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.3.1") &&
+            writeString(key,L"DisplayVersion",L"0.4.0") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -475,7 +466,8 @@ struct Installer {
     void startInstallation() {
         if(working.exchange(true))return;
         step=Installing;result=-99;progress=8;redraw();
-        std::thread([this]{installationThread();}).detach();
+        if(worker.joinable())worker.join();
+        worker=std::thread([this]{installationThread();});
     }
     void choose(UINT vk,UINT mod) {
         if(vk==VK_SHIFT||vk==VK_CONTROL||vk==VK_MENU||vk==VK_LWIN||vk==VK_RWIN)
@@ -497,7 +489,7 @@ struct Installer {
         listening=false;redraw();
     }
     void nextClick(POINT p) {
-        if(p.y<47 && p.x>574) { DestroyWindow(hwnd);return; }
+        if(p.y<47 && p.x>574) { SendMessageW(hwnd,WM_CLOSE,0,0);return; }
         if(p.y<47 && p.x>530) { ShowWindow(hwnd,SW_MINIMIZE);return; }
         if(step==Hotkey&&inside(p,inputRect())) {listening=true;redraw();return;}
         if(step==Confirm&&inside(p,secondaryRect())) {step=Hotkey;redraw();return;}
@@ -542,6 +534,16 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             if(p.y<47&&p.x>=56&&p.x<527)return HTCAPTION;
             return hit;
         }
+        case WM_NCCALCSIZE: if(w)return 0;break;
+        case WM_DPICHANGED: {
+            s->scale=HIWORD(w)/96.0f;
+            auto rect=reinterpret_cast<RECT*>(l);
+            SetWindowPos(hwnd,nullptr,rect->left,rect->top,int(W*s->scale),int(H*s->scale),
+                SWP_NOZORDER|SWP_NOACTIVATE);
+            return 0;
+        }
+        case WM_SIZE:
+            s->artwork.Reset();s->brush.Reset();s->target.Reset();s->redraw();return 0;
         case WM_PAINT:s->paint();return 0;
         case WM_ERASEBKGND:return 1;
         case WM_INSTALL_COMPLETE:
@@ -619,7 +621,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),
         reinterpret_cast<IUnknown**>(setup.fonts.GetAddressOf()));
     if(!setup.factory||!setup.fonts){CoUninitialize();return 3;}
-    setup.fonts->CreateTextFormat(L"Segoe UI Variable",nullptr,DWRITE_FONT_WEIGHT_NORMAL,
+    setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_NORMAL,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,18,L"ru-ru",&setup.regular);
     setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,17,L"ru-ru",&setup.medium);
@@ -627,6 +629,15 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,14,L"ru-ru",&setup.smallText);
     setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,30,L"ru-ru",&setup.headline);
+    setup.medium->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+    // Preview mode exercises the actual native UI without installing anything.
+    if(commandLine && wcsstr(commandLine,L"--preview")) {
+        int step=0,dpi=96;
+        swscanf_s(commandLine,L"--preview %d %d",&step,&dpi);
+        setup.step=static_cast<Step>(std::clamp(step,0,5));
+        setup.scale=std::clamp(dpi/96.0f,1.0f,3.0f);
+        setup.progress=62;
+    }
     setup.icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),
         IMAGE_ICON,32,32,LR_DEFAULTCOLOR));
     setup.largeIcon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),
@@ -642,14 +653,15 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     int x=work.left+(work.right-work.left-physicalW)/2;
     int y=work.top+(work.bottom-work.top-physicalH)/2;
     HWND hwnd=CreateWindowExW(WS_EX_APPWINDOW,L"ScreenshotPremiumSetup",
-        L"Screenshot",WS_POPUP,x,y,physicalW,physicalH,nullptr,nullptr,instance,&setup);
+        L"Screenshot",WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,x,y,physicalW,physicalH,nullptr,nullptr,instance,&setup);
     if(!hwnd){CoUninitialize();return 4;}
-    // Clip actual HWND to a rounded silhouette: no opaque black corner pixels.
-    int radius=int(28*setup.scale);
-    HRGN region=CreateRoundRectRgn(0,0,physicalW+1,physicalH+1,radius,radius);
-    if(region && !SetWindowRgn(hwnd,region,TRUE)) DeleteObject(region);
+    // Keep a real DWM frame: Windows 11 owns corners and shadow, never a black bitmap mask.
     const DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;
     DwmSetWindowAttribute(hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
+    BOOL dark=TRUE;
+    DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));
+    MARGINS margins{1,1,1,1};DwmExtendFrameIntoClientArea(hwnd,&margins);
+    SetWindowPos(hwnd,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
     ShowWindow(hwnd,show==SW_HIDE?SW_SHOWNORMAL:show);
     UpdateWindow(hwnd);
     MSG message{};
@@ -657,7 +669,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
         TranslateMessage(&message);DispatchMessageW(&message);
     }
     // Do not free Installer before the background worker exits.
-    while(setup.working.load())Sleep(40);
+    if(setup.worker.joinable())setup.worker.join();
     setup.brush.Reset();setup.target.Reset();
     if(setup.icon)DestroyIcon(setup.icon);
     if(setup.largeIcon)DestroyIcon(setup.largeIcon);
