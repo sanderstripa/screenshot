@@ -238,9 +238,16 @@ struct Installer {
             }
             target->CreateSolidColorBrush(D2D1::ColorF(1,1,1),&brush);
             ComPtr<IWICImagingFactory> imaging;
-            ComPtr<IWICBitmap> bitmap;
-            if(SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,
-                IID_PPV_ARGS(&imaging))) && SUCCEEDED(imaging->CreateBitmapFromHICON(largeIcon,&bitmap))) {
+            ComPtr<IWICStream> stream;
+            ComPtr<IWICBitmapDecoder> decoder;
+            ComPtr<IWICBitmapFrameDecode> bitmap;
+            HRSRC resource=FindResourceW(instance,MAKEINTRESOURCEW(201),RT_RCDATA);
+            auto bytes=resource ? static_cast<BYTE*>(LockResource(LoadResource(instance,resource))) : nullptr;
+            if(bytes && SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,
+                IID_PPV_ARGS(&imaging))) && SUCCEEDED(imaging->CreateStream(&stream)) &&
+                SUCCEEDED(stream->InitializeFromMemory(bytes,SizeofResource(instance,resource))) &&
+                SUCCEEDED(imaging->CreateDecoderFromStream(stream.Get(),nullptr,WICDecodeMetadataCacheOnLoad,&decoder)) &&
+                SUCCEEDED(decoder->GetFrame(0,&bitmap))) {
                 ComPtr<IWICFormatConverter> converter;
                 if(SUCCEEDED(imaging->CreateFormatConverter(&converter)) && SUCCEEDED(converter->Initialize(
                     bitmap.Get(),GUID_WICPixelFormat32bppPBGRA,WICBitmapDitherTypeNone,nullptr,0,
@@ -393,7 +400,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.4.0") &&
+            writeString(key,L"DisplayVersion",L"0.4.1") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
