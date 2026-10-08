@@ -3,6 +3,9 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <shlobj.h>
+#include <tlhelp32.h>
+#include <dwmapi.h>
+#include <filesystem>
 #include <d2d1.h>
 #include <dwrite.h>
 #include <wrl/client.h>
@@ -15,6 +18,7 @@
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"dwrite.lib")
 #pragma comment(lib,"shell32.lib")
+#pragma comment(lib,"dwmapi.lib")
 #pragma comment(lib,"ole32.lib")
 using Microsoft::WRL::ComPtr;
 
@@ -48,6 +52,10 @@ struct Installer {
     Step step = Welcome;
     Config config{};
     std::wstring status{};
+    std::wstring failureDetail{};
+    DWORD failureCode = 0;
+    float scale = 1.0f;
+    HICON largeIcon = nullptr;
     std::atomic<int> progress{0};
     std::atomic<int> result{-99};
     std::atomic<bool> working{false};
@@ -185,9 +193,10 @@ struct Installer {
             label(std::to_wstring(p)+L"%",527,237,70,31,regular.Get(),muted,
                 DWRITE_TEXT_ALIGNMENT_TRAILING);
             if(result.load()>=1) {
-                label(L"Не удалось установить приложение",44,274,552,36,
+                label(L"Не удалось установить приложение",44,262,552,36,
                     regular.Get(),D2D1::ColorF(1,.65f,.56f));
-                button(D2D1::RectF(430,327,602,377),L"Повторить");
+                label(failureDetail,44,297,540,48,smallText.Get(),muted);
+                button(D2D1::RectF(430,345,602,390),L"Повторить");
             }
         }
         if(step==Installed) {
@@ -311,46 +320,148 @@ struct Installer {
         step=Ready;
         redraw();
     }
-    void installationThread() {
-        wchar_t dir[MAX_PATH]{};
-        if(!GetTempPathW(MAX_PATH,dir)) {result=1;PostMessageW(hwnd,WM_INSTALL_COMPLETE,0,0);return;}
-        wchar_t path[MAX_PATH]{};
-        if(!GetTempFileNameW(dir,L"SHS",0,path)) {result=1;PostMessageW(hwnd,WM_INSTALL_COMPLETE,0,0);return;}
-        HRSRC resource=FindResourceW(instance,MAKEINTRESOURCEW(PAYLOAD_ID),RT_RCDATA);
-        if(!resource) {DeleteFileW(path);result=1;PostMessageW(hwnd,WM_INSTALL_COMPLETE,0,0);return;}
-        HGLOBAL data=LoadResource(instance,resource);
-        DWORD bytes=SizeofResource(instance,resource);
-        void* ptr=LockResource(data);
-        HANDLE file=CreateFileW(path,GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,
-            FILE_ATTRIBUTE_NORMAL,nullptr);
-        if(file==INVALID_HANDLE_VALUE) {
-            result=1;PostMessageW(hwnd,WM_INSTALL_COMPLETE,0,0);return;
-        }
-        DWORD wrote=0;
-        BOOL stored=WriteFile(file,ptr,bytes,&wrote,nullptr);
-        CloseHandle(file);
-        if(!stored||wrote!=bytes) {
-            DeleteFileW(path);result=1;PostMessageW(hwnd,WM_INSTALL_COMPLETE,0,0);return;
-        }
-        progress=31;PostMessageW(hwnd,WM_APP+11,0,0);
-        std::wstring command=L"\""+std::wstring(path)+L"\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-";
-        STARTUPINFOW startup{sizeof(startup)};
-        PROCESS_INFORMATION child{};
-        BOOL created=CreateProcessW(path,command.data(),nullptr,nullptr,FALSE,
-            CREATE_NO_WINDOW,nullptr,nullptr,&startup,&child);
-        DWORD exitCode=1;
-        if(created) {
-            CloseHandle(child.hThread);
-            // Smooth but honest progress: indeterminate until actual installer exits.
-            progress=55;PostMessageW(hwnd,WM_APP+11,0,0);
-            WaitForSingleObject(child.hProcess,INFINITE);
-            GetExitCodeProcess(child.hProcess,&exitCode);
-            CloseHandle(child.hProcess);
-        }
-        DeleteFileW(path);
-        progress=exitCode==0?100:55;
-        result=exitCode==0?0:1;
+    void error(const std::wstring& stage,DWORD code) {
+        failureCode=code;
+        failureDetail=stage;
+        if(code) failureDetail+=L"\nWindows: "+std::to_wstring(code)+L" "+errorMessage(code);
+        result=1;
         PostMessageW(hwnd,WM_INSTALL_COMPLETE,0,0);
+    }
+    bool writeDWORD(HKEY key,const wchar_t* name,DWORD value) {
+        return RegSetValueExW(key,name,0,REG_DWORD,
+            reinterpret_cast<const BYTE*>(&value),sizeof(value))==ERROR_SUCCESS;
+    }
+    bool writeString(HKEY key,const wchar_t* name,const std::wstring& value) {
+        return RegSetValueExW(key,name,0,REG_SZ,
+            reinterpret_cast<const BYTE*>(value.c_str()),
+            static_cast<DWORD>((value.size()+1)*sizeof(wchar_t)))==ERROR_SUCCESS;
+    }
+    std::wstring installDirectory() {
+        wchar_t local[MAX_PATH]{};
+        if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)))
+            return {};
+        return std::wstring(local)+L"\\Programs\\Screenshot";
+    }
+    bool stopOldScreenshot(const std::wstring& filename) {
+        HANDLE event=OpenEventW(EVENT_MODIFY_STATE,FALSE,
+            L"Local\\Screenshot.SanderStripa.Exit");
+        if(event) { SetEvent(event); CloseHandle(event); Sleep(400); }
+        // Previous v0.1/v0.2 binaries had no cooperative shutdown.
+        // Only stop a process whose full image path matches our installation.
+        HANDLE snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+        if(snapshot==INVALID_HANDLE_VALUE)return false;
+        PROCESSENTRY32W entry{sizeof(entry)};
+        bool ok=true;
+        if(Process32FirstW(snapshot,&entry)) do {
+            if(_wcsicmp(entry.szExeFile,L"Screenshot.exe")!=0 ||
+                entry.th32ProcessID==GetCurrentProcessId())continue;
+            HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION|
+                PROCESS_TERMINATE|SYNCHRONIZE,FALSE,entry.th32ProcessID);
+            if(!process)continue;
+            wchar_t image[32768]{};
+            DWORD length=32768;
+            if(QueryFullProcessImageNameW(process,0,image,&length) &&
+                _wcsicmp(image,filename.c_str())==0) {
+                if(!TerminateProcess(process,0) ||
+                    WaitForSingleObject(process,5000)==WAIT_TIMEOUT)ok=false;
+            }
+            CloseHandle(process);
+        } while(Process32NextW(snapshot,&entry));
+        CloseHandle(snapshot);
+        return ok;
+    }
+    bool registerInstall(const std::wstring& dir) {
+        HKEY key=nullptr;
+        const std::wstring exe=dir+L"\\Screenshot.exe";
+        const std::wstring uninstaller=dir+L"\\Uninstall.exe";
+        if(RegCreateKeyExW(HKEY_CURRENT_USER,
+            L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
+        bool a=writeString(key,L"Screenshot",L"\""+exe+L"\"");
+        RegCloseKey(key);
+        if(!a)return false;
+        if(RegCreateKeyExW(HKEY_CURRENT_USER,
+            L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
+            0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
+        bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
+            writeString(key,L"DisplayVersion",L"0.3.0") &&
+            writeString(key,L"Publisher",L"Sander Stripa") &&
+            writeString(key,L"InstallLocation",dir) &&
+            writeString(key,L"DisplayIcon",exe) &&
+            writeString(key,L"UninstallString",L"\""+uninstaller+L"\" --uninstall") &&
+            writeDWORD(key,L"NoModify",1) &&
+            writeDWORD(key,L"NoRepair",1);
+        RegCloseKey(key);
+        return ok;
+    }
+    int uninstall() {
+        std::wstring dir=installDirectory();
+        if(dir.empty())return 2;
+        const std::wstring exe=dir+L"\\Screenshot.exe";
+        stopOldScreenshot(exe);
+        RegDeleteKeyValueW(HKEY_CURRENT_USER,
+            L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",L"Screenshot");
+        RegDeleteTreeW(HKEY_CURRENT_USER,
+            L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot");
+        DeleteFileW(exe.c_str());
+        std::wstring self=dir+L"\\Uninstall.exe";
+        MoveFileExW(self.c_str(),nullptr,MOVEFILE_DELAY_UNTIL_REBOOT);
+        RemoveDirectoryW(dir.c_str());
+        return 0;
+    }
+    bool installPayload() {
+        const std::wstring dir=installDirectory();
+        if(dir.empty()){error(L"Не удалось определить папку пользователя",GetLastError());return false;}
+        if(SHCreateDirectoryExW(nullptr,dir.c_str(),nullptr)!=ERROR_SUCCESS &&
+            GetFileAttributesW(dir.c_str())==INVALID_FILE_ATTRIBUTES) {
+            error(L"Не удалось создать папку "+dir,GetLastError());return false;
+        }
+        progress=24;PostMessageW(hwnd,WM_APP+11,0,0);
+        HRSRC resource=FindResourceW(instance,MAKEINTRESOURCEW(PAYLOAD_ID),RT_RCDATA);
+        if(!resource){error(L"В установщике отсутствует Screenshot.exe",ERROR_RESOURCE_NAME_NOT_FOUND);return false;}
+        HGLOBAL data=LoadResource(instance,resource);
+        const DWORD bytes=SizeofResource(instance,resource);
+        const BYTE* ptr=static_cast<const BYTE*>(LockResource(data));
+        if(!ptr||bytes<1024||ptr[0]!='M'||ptr[1]!='Z'){
+            error(L"Встроенный Screenshot.exe повреждён",ERROR_INVALID_DATA);return false;
+        }
+        std::wstring temp=dir+L"\\Screenshot.new";
+        HANDLE f=CreateFileW(temp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,nullptr);
+        if(f==INVALID_HANDLE_VALUE) {error(L"Не удалось записать Screenshot.exe",GetLastError());return false;}
+        DWORD wrote=0;
+        bool success=WriteFile(f,ptr,bytes,&wrote,nullptr) && wrote==bytes && FlushFileBuffers(f);
+        DWORD writeError=GetLastError();
+        CloseHandle(f);
+        if(!success){DeleteFileW(temp.c_str());error(L"Ошибка записи файлов",writeError);return false;}
+        progress=59;PostMessageW(hwnd,WM_APP+11,0,0);
+        const std::wstring exe=dir+L"\\Screenshot.exe";
+        if(!stopOldScreenshot(exe)){
+            DeleteFileW(temp.c_str());error(L"Не удалось закрыть прежнюю версию Screenshot",ERROR_SHARING_VIOLATION);return false;
+        }
+        // Same-directory atomic replace: never leave a half-written Screenshot.exe.
+        if(!MoveFileExW(temp.c_str(),exe.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)){
+            DWORD code=GetLastError();DeleteFileW(temp.c_str());
+            error(L"Не удалось заменить Screenshot.exe. Проверьте антивирус и права доступа.",code);
+            return false;
+        }
+        progress=83;PostMessageW(hwnd,WM_APP+11,0,0);
+        wchar_t self[MAX_PATH]{};
+        if(!GetModuleFileNameW(nullptr,self,MAX_PATH) ||
+            !CopyFileW(self,(dir+L"\\Uninstall.exe").c_str(),FALSE)){
+            error(L"Не удалось подготовить удаление приложения",GetLastError());return false;
+        }
+        if(!registerInstall(dir)){
+            error(L"Не удалось зарегистрировать приложение в Windows",GetLastError());return false;
+        }
+        return true;
+    }
+    void installationThread() {
+        failureDetail.clear();failureCode=0;
+        if(installPayload()) {
+            progress=100;result=0;
+            PostMessageW(hwnd,WM_INSTALL_COMPLETE,0,0);
+        }
     }
     void startInstallation() {
         if(working.exchange(true))return;
@@ -384,7 +495,7 @@ struct Installer {
         if(!inside(p,primaryRect(step)))return;
         switch(step) {
             case Welcome:startInstallation();break;
-            case Installing:if(result.load()==1){working=false;startInstallation();}break;
+            case Installing:if(result.load()==1 && inside(p,D2D1::RectF(430,345,602,390))){working=false;startInstallation();}break;
             case Installed:step=Hotkey;redraw();break;
             case Hotkey:
                 if(config.vk==VK_SNAPSHOT && config.mod==0) {step=Confirm;redraw();}
@@ -467,6 +578,9 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     }
     HRESULT co=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
     if(FAILED(co))return 2;
+    if (commandLine && wcsstr(commandLine,L"--uninstall")) {
+        Installer probe;int code=probe.uninstall();CoUninitialize();return code;
+    }
     if (commandLine && wcsstr(commandLine,L"--integration-test")) {
         Installer probe;
         probe.instance=instance;
