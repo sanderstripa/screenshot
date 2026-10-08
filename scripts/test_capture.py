@@ -9,6 +9,8 @@ u=c.windll.user32;k=c.windll.kernel32
 u.SetProcessDpiAwarenessContext(c.c_void_p(-4))
 u.FindWindowW.restype=w.HWND
 u.PostMessageW.argtypes=[w.HWND,w.UINT,w.WPARAM,w.LPARAM]
+u.ScreenToClient.argtypes=[w.HWND,c.POINTER(w.POINT)]
+u.GetWindowRect.argtypes=[w.HWND,c.POINTER(w.RECT)]
 u.GetClipboardData.restype=w.HANDLE
 k.GlobalLock.argtypes=[w.HANDLE];k.GlobalLock.restype=c.c_void_p
 k.GlobalSize.argtypes=[w.HANDLE];k.GlobalSize.restype=c.c_size_t
@@ -32,12 +34,15 @@ try:
                 fixture.update();time.sleep(.05)
             if not overlay:raise RuntimeError('Capture overlay did not open')
             time.sleep(.4)
-            u.SetCursorPos(250,280)
-            u.PostMessageW(overlay,0x200,0,0);time.sleep(.08)
-            u.PostMessageW(overlay,0x201,1,0);time.sleep(.08)
+            def point(x,y):
+                p=w.POINT(x,y);u.ScreenToClient(overlay,c.byref(p))
+                return (p.x&0xffff)|((p.y&0xffff)<<16)
+            u.PostMessageW(overlay,0x200,0,point(250,280));time.sleep(.08)
+            u.PostMessageW(overlay,0x201,1,point(250,280));time.sleep(.08)
+            last=point(250,280)
             if mode=='region':
-                u.SetCursorPos(450,400);u.PostMessageW(overlay,0x200,1,0);time.sleep(.1)
-            u.PostMessageW(overlay,0x202,0,0)
+                last=point(450,400);u.PostMessageW(overlay,0x200,1,last);time.sleep(.1)
+            u.PostMessageW(overlay,0x202,0,last)
             created=set()
             for _ in range(100):
                 created=set(folder.glob('*.png'))-before
@@ -46,6 +51,13 @@ try:
             if len(created)!=1:raise RuntimeError(f'{mode}: PNG was not saved')
             path=created.pop();data=path.read_bytes();im=Image.open(path)
             if mode=='region' and im.size!=(248,168):raise RuntimeError(f'Wrong crop: {im.size}')
+            if mode=='window':
+                native=u.FindWindowW(None,'Screenshot capture verification')
+                rect=w.RECT()
+                c.windll.dwmapi.DwmGetWindowAttribute.argtypes=[w.HWND,w.DWORD,c.c_void_p,w.DWORD]
+                c.windll.dwmapi.DwmGetWindowAttribute(native,9,c.byref(rect),c.sizeof(rect))
+                expected=(rect.right-rect.left+48,rect.bottom-rect.top+48)
+                if im.size!=expected:raise RuntimeError(f'Wrong window bounds: {im.size}, expected {expected}')
             pixel=im.convert('RGBA').getpixel((im.width//2,im.height//2))
             if any(abs(a-b)>3 for a,b in zip(pixel,(22,128,232,255))):
                 raise RuntimeError(f'{mode}: wrong captured pixels: {pixel}')

@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <windowsx.h>
 #include <d2d1.h>
 #include <dwmapi.h>
 #include <wincodec.h>
@@ -467,7 +468,7 @@ struct App {
             return;
         case WM_LBUTTONDOWN: {
             if (finishing) return;
-            POINT pt{}; GetCursorPos(&pt);
+            POINT pt{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ClientToScreen(overlay,&pt);
             if (closeHit(localPoint(pt))) { dismiss(); return; }
             pressed = true; dragging = false; down = pt; pointer = pt;
             SetCapture(overlay);
@@ -475,7 +476,7 @@ struct App {
         }
         case WM_MOUSEMOVE: {
             if (finishing) return;
-            POINT pt{}; GetCursorPos(&pt);
+            POINT pt{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ClientToScreen(overlay,&pt);
             if (pressed && (std::abs(pt.x - down.x) > DRAG_THRESHOLD ||
                             std::abs(pt.y - down.y) > DRAG_THRESHOLD))
                 dragging = true;
@@ -484,7 +485,7 @@ struct App {
         }
         case WM_LBUTTONUP: {
             if (finishing || !pressed) return;
-            POINT pt{}; GetCursorPos(&pt);
+            POINT pt{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ClientToScreen(overlay,&pt);
             if (GetCapture() == overlay) ReleaseCapture();
             bool didDrag = dragging;
             pressed = dragging = false;
