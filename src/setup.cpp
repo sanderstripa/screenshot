@@ -179,8 +179,6 @@ struct Installer {
         const auto white=D2D1::ColorF(.96f,.97f,1);
         const auto muted=D2D1::ColorF(.72f,.79f,.89f);
         if(step==Welcome) {
-            rounded(D2D1::RectF(43,110,214,288),32,D2D1::ColorF(.035f,.071f,.125f,.75f));
-            logo(72,129,125);
             label(L"Screenshot",252,133,330,60,headline.Get(),white);
             button(primaryRect(step),L"Установить  →");
         }
@@ -243,19 +241,30 @@ struct Installer {
         PAINTSTRUCT ps{};
         BeginPaint(hwnd,&ps);
         if(!target) {
+            RECT bounds{};GetClientRect(hwnd,&bounds);
+            UINT pxWidth = static_cast<UINT>(bounds.right-bounds.left);
+            UINT pxHeight = static_cast<UINT>(bounds.bottom-bounds.top);
             if(!factory || FAILED(factory->CreateHwndRenderTarget(
                 D2D1::RenderTargetProperties(),
-                D2D1::HwndRenderTargetProperties(hwnd,D2D1::SizeU(W,H)),&target))) {
+                D2D1::HwndRenderTargetProperties(hwnd,D2D1::SizeU(pxWidth,pxHeight)),&target))) {
                 EndPaint(hwnd,&ps);return;
             }
             target->CreateSolidColorBrush(D2D1::ColorF(1,1,1),&brush);
         }
         target->BeginDraw();
+        target->SetDpi(96,96);
+        target->SetTransform(D2D1::Matrix3x2F::Scale(scale,scale));
+        target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         background();header();content();
         HRESULT hr=target->EndDraw();
         if(hr==D2DERR_RECREATE_TARGET){brush.Reset();target.Reset();}
         // The approved embedded icon, rather than Inno Setup's stock setup artwork.
-        if(icon) DrawIconEx(ps.hdc,17,14,icon,32,32,0,nullptr,DI_NORMAL);
+        if(icon) DrawIconEx(ps.hdc,int(17*scale),int(13*scale),icon,
+                int(31*scale),int(31*scale),0,nullptr,DI_NORMAL);
+        if(step==Welcome && largeIcon) {
+            DrawIconEx(ps.hdc,int(60*scale),int(109*scale),largeIcon,
+                int(160*scale),int(160*scale),0,nullptr,DI_NORMAL);
+        }
         EndPaint(hwnd,&ps);
     }
     void redraw() { InvalidateRect(hwnd,nullptr,FALSE); }
@@ -523,6 +532,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             LRESULT hit=DefWindowProcW(hwnd,msg,w,l);
             POINT p{GET_X_LPARAM(l),GET_Y_LPARAM(l)};
             ScreenToClient(hwnd,&p);
+            p.x=int(p.x/s->scale); p.y=int(p.y/s->scale);
             if(p.y<47&&p.x>=56&&p.x<527)return HTCAPTION;
             return hit;
         }
@@ -533,7 +543,9 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             s->working=false;s->redraw();return 0;
         case WM_APP+11:s->redraw();return 0;
         case WM_LBUTTONUP:{
-            POINT p{GET_X_LPARAM(l),GET_Y_LPARAM(l)};s->nextClick(p);return 0;
+            POINT p{GET_X_LPARAM(l),GET_Y_LPARAM(l)};
+            p.x=int(p.x/s->scale);p.y=int(p.y/s->scale);
+            s->nextClick(p);return 0;
         }
         case WM_KEYUP:
         case WM_SYSKEYUP:
@@ -569,6 +581,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     if (commandLine && wcsstr(commandLine,L"--self-test")) {
         HRSRC payload=FindResourceW(instance,MAKEINTRESOURCEW(PAYLOAD_ID),RT_RCDATA);
         if(!payload||SizeofResource(instance,payload)<1024)return 8;
@@ -595,11 +608,12 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
         return testResult;
     }
     Installer setup;setup.instance=instance;
+    setup.scale=std::clamp(GetDpiForSystem()/96.0f,1.0f,2.5f);
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,setup.factory.GetAddressOf());
     DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),
         reinterpret_cast<IUnknown**>(setup.fonts.GetAddressOf()));
     if(!setup.factory||!setup.fonts){CoUninitialize();return 3;}
-    setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_NORMAL,
+    setup.fonts->CreateTextFormat(L"Segoe UI Variable",nullptr,DWRITE_FONT_WEIGHT_NORMAL,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,18,L"ru-ru",&setup.regular);
     setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,17,L"ru-ru",&setup.medium);
@@ -607,18 +621,29 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,14,L"ru-ru",&setup.smallText);
     setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
         DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,30,L"ru-ru",&setup.headline);
-    setup.icon=LoadIconW(instance,MAKEINTRESOURCEW(101));
+    setup.icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),
+        IMAGE_ICON,32,32,LR_DEFAULTCOLOR));
+    setup.largeIcon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),
+        IMAGE_ICON,256,256,LR_DEFAULTCOLOR));
     WNDCLASSEXW wc{sizeof(wc)};
     wc.hInstance=instance;wc.lpszClassName=L"ScreenshotPremiumSetup";
     wc.lpfnWndProc=procedure;wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hIcon=setup.icon;
     RegisterClassExW(&wc);
     RECT work{};
     SystemParametersInfoW(SPI_GETWORKAREA,0,&work,0);
-    int x=work.left+(work.right-work.left-W)/2;
-    int y=work.top+(work.bottom-work.top-H)/2;
+    int physicalW=int(W*setup.scale);
+    int physicalH=int(H*setup.scale);
+    int x=work.left+(work.right-work.left-physicalW)/2;
+    int y=work.top+(work.bottom-work.top-physicalH)/2;
     HWND hwnd=CreateWindowExW(WS_EX_APPWINDOW,L"ScreenshotPremiumSetup",
-        L"Screenshot",WS_POPUP,x,y,W,H,nullptr,nullptr,instance,&setup);
+        L"Screenshot",WS_POPUP,x,y,physicalW,physicalH,nullptr,nullptr,instance,&setup);
     if(!hwnd){CoUninitialize();return 4;}
+    // Clip actual HWND to a rounded silhouette: no opaque black corner pixels.
+    int radius=int(28*setup.scale);
+    HRGN region=CreateRoundRectRgn(0,0,physicalW+1,physicalH+1,radius,radius);
+    if(region && !SetWindowRgn(hwnd,region,TRUE)) DeleteObject(region);
+    const DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;
+    DwmSetWindowAttribute(hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
     ShowWindow(hwnd,show==SW_HIDE?SW_SHOWNORMAL:show);
     UpdateWindow(hwnd);
     MSG message{};
@@ -628,6 +653,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     // Do not free Installer before the background worker exits.
     while(setup.working.load())Sleep(40);
     setup.brush.Reset();setup.target.Reset();
+    if(setup.icon)DestroyIcon(setup.icon);
+    if(setup.largeIcon)DestroyIcon(setup.largeIcon);
     setup.icon=nullptr;
     setup.regular.Reset();setup.medium.Reset();setup.smallText.Reset();setup.headline.Reset();
     setup.fonts.Reset();setup.factory.Reset();
