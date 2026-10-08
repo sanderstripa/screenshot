@@ -1,5 +1,17 @@
 # Windows 11 verification — 2026-10-09
 
+## v0.4.1 — supplied icon
+
+The user's original PNG is retained. The approved design is used with transparent exterior edges, nine ICO sizes and a 1254×1254 installer master. The original and prepared assets are separate files.
+
+On Windows 11 build 26100: live upgrade from v0.4.0 and final installation PASS; all nine actual icon resources in both EXEs match the packaged ICO byte for byte; embedded installer PNG matches its master byte for byte; all 30 native stage/DPI combinations PASS; PNG disk/clipboard self-test PASS. Icon cache refresh is issued during successful installation.
+
+Final installer SHA-256: `dc1a1f19770e9a30b2f0569c136a408df0a8afcdc35b90db2cb842c9e0631122`.
+
+The UI screenshot test uses direct native-window capture when an unrelated desktop popup obscures the window. Additional mouse-driven capture reruns on this active desktop were interrupted by unrelated windows; those reruns are not counted as passes. Capture code is unchanged from the verified v0.4.0 tests below.
+
+## v0.4.0 — application and installer behavior
+
 System: Windows 11, build 26100, x64. Tests ran against the downloaded executable.
 
 Installer SHA-256: `4f933e491b357cec05786071e2519470c4b0ad4b12eb2f7d099e33363fed7c07`.
@@ -21,4 +33,4 @@ Installer SHA-256: `4f933e491b357cec05786071e2519470c4b0ad4b12eb2f7d099e33363fed
 
 Desktop checks: `scripts/test_ui.py`, `scripts/test_capture.py`, `scripts/test_wizard.py`. Python with Pillow is only needed for testing. Screenshots stay local and are not published.
 
-The approved icon attachment from the earlier chat was inaccessible. The checked-in icon was preserved and build-time icon regeneration removed.
+At v0.4.0 the approved attachment was unavailable. The user has since supplied it and v0.4.1 installs that design.

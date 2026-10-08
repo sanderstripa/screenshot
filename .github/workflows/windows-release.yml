@@ -73,14 +73,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.4.1-rc.2"
+          $tag = "v0.4.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
+            # Upload the exact installer whose resources and upgrade were checked on Windows 11.
+            Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.4.1-rc.2/Screenshot-Setup.exe" -OutFile "dist/Screenshot-Setup.exe"
+            $testedHash = "dc1a1f19770e9a30b2f0569c136a408df0a8afcdc35b90db2cb842c9e0631122"
+            if ((Get-FileHash "dist/Screenshot-Setup.exe" -Algorithm SHA256).Hash.ToLowerInvariant() -ne $testedHash) {
+              throw "Installer differs from the Windows 11-tested binary"
+            }
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.4.1 candidate" `
+              --title "Screenshot v0.4.1" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --prerelease
+              --latest
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
