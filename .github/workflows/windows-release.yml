@@ -1,4 +1,4 @@
-name: Screenshot native Windows release
+name: Screenshot Windows release
 on:
   push:
     branches: [main]
@@ -10,53 +10,50 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - name: Configure native x64 build
+      - name: Configure x64 native Windows
         run: cmake -S . -B build -A x64
-      - name: Build background screenshot capture
+      - name: Compile screenshot app
         run: cmake --build build --config Release --target Screenshot
-      - name: Smoke test image processing and PNG encoding
+      - name: Verify screenshot PNG encoding
         shell: pwsh
         run: |
-          $test = Start-Process -FilePath ".\build\Release\Screenshot.exe" -ArgumentList "--self-test" -Wait -PassThru
-          if ($test.ExitCode -ne 0) { throw "PNG self-test failed: $($test.ExitCode)" }
-      - name: Prepare silent backend
-        shell: pwsh
-        run: |
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress }
-          if (!(Test-Path $iscc)) { throw "Inno Setup 6 unavailable" }
-          & $iscc "installer.iss"
-          if ($LASTEXITCODE -ne 0) { throw "Backend packaging failed" }
-          if (!(Test-Path "dist\ScreenshotCore-Setup.exe")) { throw "Core missing" }
-      - name: Build custom premium setup launcher
+          $p = Start-Process -FilePath ".\build\Release\Screenshot.exe" -ArgumentList "--self-test" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Image test failed: $($p.ExitCode)" }
+      - name: Build native custom installer (no Inno)
         run: cmake --build build --config Release --target ScreenshotSetup
-      - name: Package custom setup only
+      - name: Verify embedded executable
         shell: pwsh
         run: |
-          Copy-Item "build\Release\Screenshot-Setup.exe" "dist\Screenshot-Setup.exe" -Force
-          $test = Start-Process -FilePath ".\dist\Screenshot-Setup.exe" -ArgumentList "--self-test" -Wait -PassThru
-          if ($test.ExitCode -ne 0) { throw "Installer payload self-test failed: $($test.ExitCode)" }
-      - name: End-to-end installation test on Windows
+          $p = Start-Process -FilePath ".\build\Release\Screenshot-Setup.exe" -ArgumentList "--self-test" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Embedded payload invalid: $($p.ExitCode)" }
+      - name: Install twice to test both clean install and updating an existing version
         shell: pwsh
         run: |
-          $test = Start-Process -FilePath ".\dist\Screenshot-Setup.exe" -ArgumentList "--integration-test" -Wait -PassThru
-          if ($test.ExitCode -ne 0) { throw "End-to-end setup failed: $($test.ExitCode)" }
-          if (!(Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe")) {
-            throw "Screenshot was not installed"
+          for ($i=1; $i -le 2; $i++) {
+            $p = Start-Process -FilePath ".\build\Release\Screenshot-Setup.exe" -ArgumentList "--integration-test" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "Install or upgrade attempt $i failed: $($p.ExitCode)" }
+            if (!(Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe")) { throw "App missing after attempt $i" }
+            if (!(Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Uninstall.exe")) { throw "Uninstaller missing after attempt $i" }
           }
-      - name: Publish v0.2.0 only on green build
+          $expected = (Get-FileHash ".\build\Release\Screenshot.exe").Hash
+          $installed = (Get-FileHash "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe").Hash
+          if ($expected -ne $installed) { throw "Installed exe mismatch" }
+      - name: Build release payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item ".\build\Release\Screenshot-Setup.exe" ".\dist\Screenshot-Setup.exe" -Force
+      - name: Publish only after checks are green
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.2.0"
+          $tag = "v0.3.0"
           gh release view $tag --repo "${{ github.repository }}" *> $null
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Release $tag exists."
-          } else {
+          if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.2.0 — new installer" `
+              --title "Screenshot v0.3.0" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
               --latest
