@@ -119,7 +119,7 @@ struct Installer {
                 target->FillGeometry(path.Get(),brush.Get());
             }
         }
-        outline(D2D1::RectF(.5f,.5f,W-.5f,H-.5f),15,
+        outline(D2D1::RectF(.5f,.5f,W-.5f,H-.5f),8,
             D2D1::ColorF(.53f,.68f,.89f,.38f));
     }
     void header() {
@@ -140,8 +140,10 @@ struct Installer {
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
         rounded(rect,12,D2D1::ColorF(.12f,.17f,.25f,.94f));
         outline(rect,12,D2D1::ColorF(.53f,.66f,.83f,.36f));
+        regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
             D2D1::ColorF(.91f,.94f,1),DWRITE_TEXT_ALIGNMENT_CENTER);
+        regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
     void ring(float x,float y,bool warning=false,bool green=false) {
         auto color=warning?D2D1::ColorF(1,.67f,.19f):

@@ -617,8 +617,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     RegisterClassExW(&overlayClass);
     current.controller = CreateWindowExW(0, L"ScreenshotController", L"Screenshot",
         0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, instance, nullptr);
+    const bool captureNow=commandLine && wcsstr(commandLine,L"--capture-now");
     if (!current.controller || !RegisterHotKey(current.controller, HOTKEY_ID,
-        hotkeyModifiers | MOD_NOREPEAT, hotkeyVK)) {
+        captureNow ? MOD_NOREPEAT : hotkeyModifiers | MOD_NOREPEAT,
+        captureNow ? VK_F24 : hotkeyVK)) {
         MessageBoxW(nullptr, L"The configured Screenshot shortcut is unavailable.\n\n"
             L"Run Screenshot Setup again to choose another key. For Print Screen, "
             L"disable the Snipping Tool key in Windows Settings > Accessibility > Keyboard "
@@ -632,6 +634,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     // Cooperative shutdown allows the installer to replace a running copy cleanly.
     HANDLE quitEvent = CreateEventW(nullptr, TRUE, FALSE,
         L"Local\\Screenshot.SanderStripa.Exit");
+    if(captureNow)PostMessageW(current.controller,WM_HOTKEY,HOTKEY_ID,0);
     MSG msg{};
     bool running = true;
     while (running) {
