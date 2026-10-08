@@ -501,6 +501,12 @@ struct Installer {
         if(p.y<47 && p.x>530) { ShowWindow(hwnd,SW_MINIMIZE);return; }
         if(step==Hotkey&&inside(p,inputRect())) {listening=true;redraw();return;}
         if(step==Confirm&&inside(p,secondaryRect())) {step=Hotkey;redraw();return;}
+        if(step==Installing && result.load()==1) {
+            if(inside(p,D2D1::RectF(430,345,602,390))) {
+                working=false;startInstallation();
+            }
+            return;
+        }
         if(!inside(p,primaryRect(step)))return;
         switch(step) {
             case Welcome:startInstallation();break;
