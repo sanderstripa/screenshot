@@ -1,6 +1,6 @@
 # About Screenshot
 
-**Screenshot** · v0.4.0 · Windows 11 x64
+**Screenshot** · v0.4.1 · Windows 11 x64
 
 Capture a visible window or screen region with a single keyboard shortcut. The resulting PNG, including soft shadow and subtle corner rounding, is saved to `%USERPROFILE%\Pictures\Screenshot` and copied to the clipboard.
 

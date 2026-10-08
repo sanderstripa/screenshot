@@ -29,6 +29,12 @@ fixture.attributes('-topmost',True);fixture.update();time.sleep(.3)
 reports=[]
 try:
     for mode in ('window','region'):
+        fixture.lift();fixture.focus_force();fixture.update()
+        native=u.FindWindowW(None,'Screenshot capture verification')
+        u.SetWindowPos(native,w.HWND(-1),0,0,0,0,0x43)
+        time.sleep(.2)
+        start_x=fixture.winfo_rootx()+150
+        start_y=fixture.winfo_rooty()+100
         before=set(folder.glob('*.png'))
         process=subprocess.Popen([exe,'--capture-now'])
         try:
@@ -50,11 +56,11 @@ try:
             def point(x,y):
                 p=w.POINT(x,y);u.ScreenToClient(overlay,c.byref(p))
                 return (p.x&0xffff)|((p.y&0xffff)<<16)
-            u.PostMessageW(overlay,0x200,0,point(250,280));time.sleep(.08)
-            u.PostMessageW(overlay,0x201,1,point(250,280));time.sleep(.08)
-            last=point(250,280)
+            u.PostMessageW(overlay,0x200,0,point(start_x,start_y));time.sleep(.08)
+            u.PostMessageW(overlay,0x201,1,point(start_x,start_y));time.sleep(.08)
+            last=point(start_x,start_y)
             if mode=='region':
-                last=point(450,400);u.PostMessageW(overlay,0x200,1,last);time.sleep(.1)
+                last=point(start_x+200,start_y+120);u.PostMessageW(overlay,0x200,1,last);time.sleep(.1)
             u.PostMessageW(overlay,0x202,0,last)
             created=set()
             for _ in range(100):

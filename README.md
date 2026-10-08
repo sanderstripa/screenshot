@@ -21,7 +21,7 @@ The custom dark installer requires one click, no destination choice, and no admi
 
 ## Native build
 
-Requires Visual Studio 2022 / Windows SDK. The checked-in icon is embedded directly; builds never redraw or replace it. **No Inno Setup.**
+Requires Visual Studio 2022 / Windows SDK. The supplied approved artwork is embedded directly, with nine ICO resolutions and a full-resolution PNG for the installer. Builds never redraw it. **No Inno Setup.**
 
 ```powershell
 cmake -S . -B build -A x64
@@ -36,6 +36,7 @@ Real desktop regression checks (Python with Pillow):
 ```powershell
 python scripts/test_ui.py build/Release/Screenshot-Setup.exe test-results/ui
 python scripts/test_capture.py "$env:LOCALAPPDATA/Programs/Screenshot/Screenshot.exe" test-results/capture
+python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-Setup.exe build/Release/Screenshot.exe
 ```
 
 The UI test opens every native setup stage at 100%, 125%, 150%, 200% and 250% scaling. The capture test opens a known-color native window, exercises click and drag capture, decodes the saved PNG and compares its bytes to the PNG in the Windows clipboard.

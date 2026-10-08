@@ -470,6 +470,10 @@ struct Installer {
         if(!registerInstall(dir)){
             error(L"Не удалось зарегистрировать приложение в Windows",GetLastError());return false;
         }
+        // Replacing an EXE at the same path must also invalidate Explorer's cached icon.
+        SHChangeNotify(SHCNE_UPDATEITEM,SHCNF_PATHW,exe.c_str(),nullptr);
+        SHChangeNotify(SHCNE_UPDATEITEM,SHCNF_PATHW,self,nullptr);
+        SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,nullptr,nullptr);
         return true;
     }
     void installationThread() {
