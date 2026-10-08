@@ -560,11 +560,22 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
         CoUninitialize();
         return 3;
     }
+    // Cooperative shutdown allows the installer to replace a running copy cleanly.
+    HANDLE quitEvent = CreateEventW(nullptr, TRUE, FALSE,
+        L"Local\\Screenshot.SanderStripa.Exit");
     MSG msg{};
-    while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+    bool running = true;
+    while (running) {
+        DWORD state = MsgWaitForMultipleObjects(quitEvent ? 1 : 0,
+            quitEvent ? &quitEvent : nullptr, FALSE, 500, QS_ALLINPUT);
+        if (quitEvent && state == WAIT_OBJECT_0) break;
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) { running = false; break; }
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
     }
+    if(quitEvent) CloseHandle(quitEvent);
     current.dismiss();
     UnregisterHotKey(current.controller, HOTKEY_ID);
     if (IsWindow(current.controller)) DestroyWindow(current.controller);
