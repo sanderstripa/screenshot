@@ -73,14 +73,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.4.0-rc.4"
+          $tag = "v0.4.0"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
+            # Publish the exact binary tested on Windows 11, not an untested rebuild.
+            Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.4.0-rc.4/Screenshot-Setup.exe" -OutFile "dist/Screenshot-Setup.exe"
+            $testedHash = "4f933e491b357cec05786071e2519470c4b0ad4b12eb2f7d099e33363fed7c07"
+            if ((Get-FileHash "dist/Screenshot-Setup.exe" -Algorithm SHA256).Hash.ToLowerInvariant() -ne $testedHash) {
+              throw "Installer differs from the binary tested on Windows 11"
+            }
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.4.0 candidate" `
+              --title "Screenshot v0.4.0" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --prerelease
+              --latest
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }

@@ -11,6 +11,12 @@ u.FindWindowW.restype=w.HWND
 u.PostMessageW.argtypes=[w.HWND,w.UINT,w.WPARAM,w.LPARAM]
 u.ScreenToClient.argtypes=[w.HWND,c.POINTER(w.POINT)]
 u.GetWindowRect.argtypes=[w.HWND,c.POINTER(w.RECT)]
+u.SetForegroundWindow.argtypes=[w.HWND]
+u.ShowWindow.argtypes=[w.HWND,c.c_int]
+u.SetWindowPos.argtypes=[w.HWND,w.HWND,c.c_int,c.c_int,c.c_int,c.c_int,w.UINT]
+u.IsWindow.argtypes=[w.HWND]
+u.GetForegroundWindow.restype=w.HWND
+u.GetWindowThreadProcessId.argtypes=[w.HWND,c.POINTER(w.DWORD)]
 u.GetClipboardData.restype=w.HANDLE
 k.GlobalLock.argtypes=[w.HANDLE];k.GlobalLock.restype=c.c_void_p
 k.GlobalSize.argtypes=[w.HANDLE];k.GlobalSize.restype=c.c_size_t
@@ -24,8 +30,7 @@ reports=[]
 try:
     for mode in ('window','region'):
         before=set(folder.glob('*.png'))
-        info=subprocess.STARTUPINFO();info.dwFlags=subprocess.STARTF_USESHOWWINDOW;info.wShowWindow=0
-        process=subprocess.Popen([exe,'--capture-now'],startupinfo=info)
+        process=subprocess.Popen([exe,'--capture-now'])
         try:
             overlay=0
             for _ in range(100):
@@ -33,7 +38,15 @@ try:
                 if overlay:break
                 fixture.update();time.sleep(.05)
             if not overlay:raise RuntimeError('Capture overlay did not open')
+            u.ShowWindow(overlay,9)
+            u.SetWindowPos(overlay,w.HWND(-1),0,0,0,0,0x43)
+            current=k.GetCurrentThreadId()
+            foreground=u.GetWindowThreadProcessId(u.GetForegroundWindow(),None)
+            u.AttachThreadInput(current,foreground,True)
+            u.SetForegroundWindow(overlay)
+            u.AttachThreadInput(current,foreground,False)
             time.sleep(.4)
+            if not u.IsWindow(overlay):raise RuntimeError('Overlay closed before mouse events')
             def point(x,y):
                 p=w.POINT(x,y);u.ScreenToClient(overlay,c.byref(p))
                 return (p.x&0xffff)|((p.y&0xffff)<<16)
@@ -48,7 +61,7 @@ try:
                 created=set(folder.glob('*.png'))-before
                 if created:break
                 time.sleep(.05)
-            if len(created)!=1:raise RuntimeError(f'{mode}: PNG was not saved')
+            if len(created)!=1:raise RuntimeError(f'{mode}: PNG was not saved, overlay_alive={u.IsWindow(overlay)}, app_exit={process.poll()}')
             path=created.pop();data=path.read_bytes();im=Image.open(path)
             if mode=='region' and im.size!=(248,168):raise RuntimeError(f'Wrong crop: {im.size}')
             if mode=='window':
