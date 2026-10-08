@@ -36,6 +36,14 @@ jobs:
           Copy-Item "build\Release\Screenshot-Setup.exe" "dist\Screenshot-Setup.exe" -Force
           $test = Start-Process -FilePath ".\dist\Screenshot-Setup.exe" -ArgumentList "--self-test" -Wait -PassThru
           if ($test.ExitCode -ne 0) { throw "Installer payload self-test failed: $($test.ExitCode)" }
+      - name: End-to-end installation test on Windows
+        shell: pwsh
+        run: |
+          $test = Start-Process -FilePath ".\dist\Screenshot-Setup.exe" -ArgumentList "--integration-test" -Wait -PassThru
+          if ($test.ExitCode -ne 0) { throw "End-to-end setup failed: $($test.ExitCode)" }
+          if (!(Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe")) {
+            throw "Screenshot was not installed"
+          }
       - name: Publish v0.2.0 only on green build
         shell: pwsh
         env:
