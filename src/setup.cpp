@@ -292,9 +292,9 @@ struct Installer {
         }
         return false;
     }
-    void launchBackground() {
+    bool launchBackground() {
         wchar_t local[MAX_PATH]{};
-        if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)))return;
+        if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)))return false;
         std::wstring file=std::wstring(local)+L"\\Programs\\Screenshot\\Screenshot.exe";
         STARTUPINFOW si{sizeof(si)};
         PROCESS_INFORMATION pi{};
@@ -303,7 +303,9 @@ struct Installer {
             nullptr,nullptr,&si,&pi)) {
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);
+            return true;
         }
+        return false;
     }
     void activateHotkey() {
         if(!saveConfig()) {
@@ -315,10 +317,15 @@ struct Installer {
                 MessageBoxW(hwnd,L"Windows не разрешила изменить системную привязку Print Screen.\n"
                     L"Отключите её вручную в Параметры → Специальные возможности → Клавиатура.",
                     L"Screenshot",MB_OK|MB_ICONWARNING);
+                return;
             }
         }
         needsRelogin=!verifyHotkey();
-        launchBackground();
+        if(!launchBackground()) {
+            MessageBoxW(hwnd,L"Не удалось запустить Screenshot. Повторите установку.",
+                L"Screenshot",MB_OK|MB_ICONERROR);
+            return;
+        }
         step=Ready;
         redraw();
     }
@@ -657,6 +664,16 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     HWND hwnd=CreateWindowExW(WS_EX_APPWINDOW,L"ScreenshotPremiumSetup",
         L"Screenshot",WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,x,y,physicalW,physicalH,nullptr,nullptr,instance,&setup);
     if(!hwnd){CoUninitialize();return 4;}
+    if(!commandLine || !wcsstr(commandLine,L"--preview")) {
+        DWORD vk=VK_SNAPSHOT,mod=0,size=sizeof(DWORD);
+        if(RegGetValueW(HKEY_CURRENT_USER,L"Software\\SanderStripa\\Screenshot",L"HotkeyVK",
+            RRF_RT_REG_DWORD,nullptr,&vk,&size)==ERROR_SUCCESS) {
+            size=sizeof(DWORD);
+            RegGetValueW(HKEY_CURRENT_USER,L"Software\\SanderStripa\\Screenshot",L"HotkeyModifiers",
+                RRF_RT_REG_DWORD,nullptr,&mod,&size);
+            setup.choose(vk,mod&(MOD_CONTROL|MOD_SHIFT|MOD_ALT));
+        }
+    }
     // Keep a real DWM frame: Windows 11 owns corners and shadow, never a black bitmap mask.
     const DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;
     DwmSetWindowAttribute(hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));

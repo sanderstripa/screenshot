@@ -17,20 +17,28 @@ The custom dark installer requires one click, no destination choice, and no admi
 - Drag with the mouse — capture any region.
 - Escape or top **×** — cancel.
 - Ctrl+V — paste the styled PNG with rounded corners and shadow.
+- Every capture also saves the identical PNG to `%USERPROFILE%\Pictures\Screenshot`.
 
 ## Native build
 
-Requires Visual Studio 2022 / Windows SDK and Python 3 with Pillow for creating the full-resolution icon. **No Inno Setup.**
+Requires Visual Studio 2022 / Windows SDK. The checked-in icon is embedded directly; builds never redraw or replace it. **No Inno Setup.**
 
 ```powershell
-python -m pip install Pillow
-python scripts/make_icon.py assets
 cmake -S . -B build -A x64
 cmake --build build --config Release --target ScreenshotSetup
 .\build\Release\Screenshot-Setup.exe
 ```
 
 The setup binary embeds the native Screenshot executable. It directly performs per-user installation, safe updates of running older versions, registry registration, and uninstallation. Windows Actions additionally verify a repeat install, an update over a live process, installed hash, and uninstall behavior.
+
+Real desktop regression checks (Python with Pillow):
+
+```powershell
+python scripts/test_ui.py build/Release/Screenshot-Setup.exe test-results/ui
+python scripts/test_capture.py "$env:LOCALAPPDATA/Programs/Screenshot/Screenshot.exe" test-results/capture
+```
+
+The UI test opens every native setup stage at 100%, 125%, 150%, 200% and 250% scaling. The capture test opens a known-color native window, exercises click and drag capture, decodes the saved PNG and compares its bytes to the PNG in the Windows clipboard.
 
 ## Notes
 

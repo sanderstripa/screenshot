@@ -214,7 +214,7 @@ bool publishClipboard(HWND owner, const Image& styled, const std::vector<uint8_t
         Sleep(25);
     }
     if(!opened)return false;
-    EmptyClipboard();
+    if(!EmptyClipboard()){CloseClipboard();return false;}
     bool success = false;
     UINT pngFormat = RegisterClipboardFormatW(L"PNG");
     if (pngFormat) {
@@ -243,8 +243,7 @@ bool publishClipboard(HWND owner, const Image& styled, const std::vector<uint8_t
     std::memcpy(dib.data() + sizeof(v5), styled.bgra.data(), styled.bgra.size());
     HGLOBAL handle = clipboardBlock(dib.data(), dib.size());
     if (handle) {
-        if (SetClipboardData(CF_DIBV5, handle)) success = true;
-        else GlobalFree(handle);
+        if (!SetClipboardData(CF_DIBV5, handle)) GlobalFree(handle);
     }
 
     // Compatibility fallback for apps that only read CF_DIB.

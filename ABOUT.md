@@ -1,8 +1,8 @@
 # About Screenshot
 
-**Screenshot** · v0.3.1 · Windows 11 x64
+**Screenshot** · v0.4.0 · Windows 11 x64
 
-Capture a visible window or screen region with a single keyboard shortcut. The resulting image, including soft shadow and subtle corner rounding, is copied to the clipboard.
+Capture a visible window or screen region with a single keyboard shortcut. The resulting PNG, including soft shadow and subtle corner rounding, is saved to `%USERPROFILE%\Pictures\Screenshot` and copied to the clipboard.
 
 The app uses native C++17, Win32, Direct2D, DirectWrite and Windows Imaging Component. It is a small user-session background process without a tray icon, heavy frameworks, network access or telemetry.
 
