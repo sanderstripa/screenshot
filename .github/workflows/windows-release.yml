@@ -44,6 +44,15 @@ jobs:
           $expected = (Get-FileHash ".\build\Release\Screenshot.exe").Hash
           $installed = (Get-FileHash "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe").Hash
           if ($expected -ne $installed) { throw "Installed exe mismatch" }
+          $app = "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe"
+          $child = Start-Process -FilePath $app -ArgumentList "--hold-install-test" -PassThru
+          Start-Sleep -Seconds 2
+          if ($child.HasExited) { throw "Upgrade test process exited unexpectedly" }
+          $upgrade = Start-Process -FilePath ".\build\Release\Screenshot-Setup.exe" -ArgumentList "--integration-test" -Wait -PassThru
+          if ($upgrade.ExitCode -ne 0) { throw "Update over running Screenshot failed: $($upgrade.ExitCode)" }
+          $child.WaitForExit(10000) | Out-Null
+          if (!$child.HasExited) { Stop-Process -Id $child.Id -Force; throw "Old screenshot did not exit" }
+          if ((Get-FileHash $app).Hash -ne $expected) { throw "Upgrade binary differs" }
       - name: Build release payload
         shell: pwsh
         run: |
