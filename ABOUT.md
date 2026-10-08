@@ -1,14 +1,11 @@
 # About Screenshot
 
-Screenshot is a compact native Windows 11 utility for capturing windows and arbitrary rectangles. Press your assigned keyboard shortcut, select, and paste the styled screenshot.
+**Screenshot** · v0.3.1 · Windows 11 x64
 
-The app is invisible until capture: no background tray icon, settings dashboard, advertising, cloud services, OCR, or video recording.
+Capture a visible window or screen region with a single keyboard shortcut. The resulting image, including soft shadow and subtle corner rounding, is copied to the clipboard.
 
-Version 0.2.0 has a custom dark installer followed by a hotkey picker. Print Screen ownership is changed only with explicit user consent. Existing third-party hotkeys cannot be forcibly replaced.
+The app uses native C++17, Win32, Direct2D, DirectWrite and Windows Imaging Component. It is a small user-session background process without a tray icon, heavy frameworks, network access or telemetry.
 
-- Developer: Sander Stripa
-- Windows 11 x64
-- Native C++17, Win32, Direct2D, DirectWrite and WIC
-- Code: MIT. Artwork and branding: copyright 2026 Sander Stripa.
+The setup program has an original dark Windows UI. It directly installs the application under the current user's profile, supports safe upgrade over a running previous version, and lets the user assign a hotkey after installation.
 
-Screenshot is independent of Apple and Microsoft.
+Developer: **Sander Stripa**. Code MIT licensed. Original Screenshot name/visual artwork © 2026 Sander Stripa. Not affiliated with Apple or Microsoft.

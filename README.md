@@ -2,31 +2,38 @@
 
 **Beautiful screenshots. Nothing else.**
 
-Native Windows 11 screenshot capture by Sander Stripa.
+Screenshot is a tiny C++/Win32 capture app for Windows 11. No tray, editor, OCR, recording, telemetry, or browser engine.
 
 ## Install
-Download Screenshot-Setup.exe from [Releases](https://github.com/sanderstripa/screenshot/releases). A custom dark setup installs automatically under %LOCALAPPDATA%\Programs\Screenshot without asking for a folder. After installation, choose a screenshot shortcut (Print Screen is the default), confirm replacing the Windows Snipping Tool action when necessary, and close the wizard.
 
-## Controls
-- Assigned shortcut: start capture
-- Hover and click: capture a visible window
-- Drag: capture an area
-- Esc or ×: cancel
-- Ctrl+V: paste polished PNG
+Download the latest **Screenshot-Setup.exe** from [Releases](https://github.com/sanderstripa/screenshot/releases).
 
-No tray icon, no settings panel, no OCR, no recording, no cloud, and no telemetry.
+The custom dark installer requires one click, no destination choice, and no administrative privileges. It installs to `%LOCALAPPDATA%\Programs\Screenshot` and configures Windows login autostart. After installation, assign your desired hotkey (Print Screen by default). Screenshot asks for confirmation before changing Windows' built-in Print Screen Snipping Tool behavior. Windows may require signing out for that change to apply.
+
+## Use
+
+- Assigned key — open the capture overlay.
+- Click an application window — capture the visible window.
+- Drag with the mouse — capture any region.
+- Escape or top **×** — cancel.
+- Ctrl+V — paste the styled PNG with rounded corners and shadow.
 
 ## Native build
-Windows 11, Visual Studio 2022 C++/CMake and Inno Setup 6.
-1. cmake -S . -B build -A x64
-2. cmake --build build --config Release --target Screenshot
-3. Compile installer.iss with ISCC to dist/ScreenshotCore-Setup.exe
-4. cmake --build build --config Release --target ScreenshotSetup
-5. The custom installer is build/Release/Screenshot-Setup.exe
 
-The native custom C++ launcher embeds an Inno silent installation engine for correct uninstall and registry integration. Only custom Screenshot UI is shown.
+Requires Visual Studio 2022 / Windows SDK and Python 3 with Pillow for creating the full-resolution icon. **No Inno Setup.**
 
-## Known limitations
-Print Screen may require signing out after its Windows Snipping Tool binding is disabled. Third-party occupied shortcuts must be changed in the conflicting application. Capture reads the visible desktop pixels; obscured windows, protected media and HDR may not capture perfectly. The installer is unsigned and may trigger SmartScreen.
+```powershell
+python -m pip install Pillow
+python scripts/make_icon.py assets
+cmake -S . -B build -A x64
+cmake --build build --config Release --target ScreenshotSetup
+.\build\Release\Screenshot-Setup.exe
+```
 
-Code MIT; branding and approved logo copyright Sander Stripa.
+The setup binary embeds the native Screenshot executable. It directly performs per-user installation, safe updates of running older versions, registry registration, and uninstallation. Windows Actions additionally verify a repeat install, an update over a live process, installed hash, and uninstall behavior.
+
+## Notes
+
+Screenshots are captured from visible desktop pixels, so occluded windows, HDR and protected media may not render perfectly. Other applications' keyboard shortcuts cannot be forcibly overridden. The installer is unsigned and may be flagged by Windows SmartScreen.
+
+Source code MIT licensed. Original icon and branding © Sander Stripa.

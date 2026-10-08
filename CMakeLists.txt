@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Screenshot VERSION 0.3.0 LANGUAGES CXX RC)
+project(Screenshot VERSION 0.3.1 LANGUAGES CXX RC)
 add_executable(Screenshot WIN32 src/main.cpp assets/screenshot.rc)
 target_compile_features(Screenshot PRIVATE cxx_std_17)
 target_compile_definitions(Screenshot PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00)

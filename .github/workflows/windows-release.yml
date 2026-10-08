@@ -53,6 +53,17 @@ jobs:
           $child.WaitForExit(10000) | Out-Null
           if (!$child.HasExited) { Stop-Process -Id $child.Id -Force; throw "Old screenshot did not exit" }
           if ((Get-FileHash $app).Hash -ne $expected) { throw "Upgrade binary differs" }
+      - name: Verify Windows autostart registration and clean uninstall
+        shell: pwsh
+        run: |
+          $launch = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run").Screenshot
+          if (!$launch.Contains("Screenshot.exe")) { throw "Autostart registration invalid" }
+          $uninst = "$env:LOCALAPPDATA\Programs\Screenshot\Uninstall.exe"
+          $remove = Start-Process -FilePath $uninst -ArgumentList "--uninstall" -Wait -PassThru
+          if ($remove.ExitCode -ne 0) { throw "Uninstaller failed: $($remove.ExitCode)" }
+          if (Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe") {
+            throw "Executable remains after uninstall"
+          }
       - name: Build release payload
         shell: pwsh
         run: |
@@ -63,7 +74,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.3.0"
+          $tag = "v0.3.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
