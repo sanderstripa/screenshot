@@ -1,4 +1,4 @@
-name: Build and publish Screenshot
+name: Screenshot native Windows release
 on:
   push:
     branches: [main]
@@ -12,42 +12,45 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure native x64 build
         run: cmake -S . -B build -A x64
-      - name: Build release
-        run: cmake --build build --config Release --parallel 2
+      - name: Build background screenshot capture
+        run: cmake --build build --config Release --target Screenshot
       - name: Smoke test image processing and PNG encoding
         shell: pwsh
         run: |
           $test = Start-Process -FilePath ".\build\Release\Screenshot.exe" -ArgumentList "--self-test" -Wait -PassThru
-          if ($test.ExitCode -ne 0) {
-            throw "Screenshot self-test failed, exit code $($test.ExitCode)"
-          }
-      - name: Prepare Inno Setup
+          if ($test.ExitCode -ne 0) { throw "PNG self-test failed: $($test.ExitCode)" }
+      - name: Prepare silent backend
         shell: pwsh
         run: |
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress }
-          if (!(Test-Path $iscc)) { throw "Inno Setup 6 was not installed" }
-      - name: Package per-user installer
+          if (!(Test-Path $iscc)) { throw "Inno Setup 6 unavailable" }
+          & $iscc "installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Backend packaging failed" }
+          if (!(Test-Path "dist\ScreenshotCore-Setup.exe")) { throw "Core missing" }
+      - name: Build custom premium setup launcher
+        run: cmake --build build --config Release --target ScreenshotSetup
+      - name: Package custom setup only
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer.iss"
-          if ($LASTEXITCODE -ne 0) { throw "Installer packaging failed" }
-          if (!(Test-Path "dist\Screenshot-Setup.exe")) { throw "Installer missing" }
-      - name: Publish v0.1.0 after successful build and tests
+          Copy-Item "build\Release\Screenshot-Setup.exe" "dist\Screenshot-Setup.exe" -Force
+          $test = Start-Process -FilePath ".\dist\Screenshot-Setup.exe" -ArgumentList "--self-test" -Wait -PassThru
+          if ($test.ExitCode -ne 0) { throw "Installer payload self-test failed: $($test.ExitCode)" }
+      - name: Publish v0.2.0 only on green build
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.1.0"
+          $tag = "v0.2.0"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -eq 0) {
-            Write-Host "Release $tag already exists; keeping immutable original asset."
+            Write-Host "Release $tag exists."
           } else {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.1.0" `
+              --title "Screenshot v0.2.0 — new installer" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
               --latest
-            if ($LASTEXITCODE -ne 0) { throw "Release publishing failed" }
+            if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }

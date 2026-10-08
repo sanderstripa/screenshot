@@ -1,6 +1,6 @@
 #define MyAppName "Screenshot"
-#define MyAppVersion "0.1.0"
-#define MyAppPublisher "Sander Stripa"
+#define MyAppVersion "0.2.0"
+#define MyAppPublisher "Screenshot"
 #define MyAppExeName "Screenshot.exe"
 [Setup]
 AppId={{82B2B1BC-D0E4-48B6-9B12-F38CFBDA38C2}
@@ -17,7 +17,7 @@ PrivilegesRequired=lowest
 SetupIconFile=assets\Screenshot.ico
 UninstallDisplayIcon={app}\Screenshot.exe
 OutputDir=dist
-OutputBaseFilename=Screenshot-Setup
+OutputBaseFilename=ScreenshotCore-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -30,7 +30,5 @@ UsePreviousAppDir=yes
 Source: "build\Release\Screenshot.exe"; DestDir: "{app}"; Flags: ignoreversion
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Screenshot"; ValueData: """{app}\Screenshot.exe"""; Flags: uninsdeletevalue
-[Run]
-Filename: "{app}\Screenshot.exe"; Description: "Start Screenshot"; Flags: nowait
 [UninstallDelete]
 Type: dirifempty; Name: "{app}"

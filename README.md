@@ -2,40 +2,31 @@
 
 **Beautiful screenshots. Nothing else.**
 
-Screenshot is a minimal native screenshot utility for Windows 11 by Sander Stripa. Press **Print Screen**, click a window or drag to capture an area, and paste the polished screenshot immediately with **Ctrl+V**.
+Native Windows 11 screenshot capture by Sander Stripa.
 
-The app runs quietly at login, without a tray icon, settings window, background web engine, OCR, or recording features.
+## Install
+Download Screenshot-Setup.exe from [Releases](https://github.com/sanderstripa/screenshot/releases). A custom dark setup installs automatically under %LOCALAPPDATA%\Programs\Screenshot without asking for a folder. After installation, choose a screenshot shortcut (Print Screen is the default), confirm replacing the Windows Snipping Tool action when necessary, and close the wizard.
 
-> The first Windows build is in development. Downloads will be published under [Releases](https://github.com/sanderstripa/screenshot/releases) after the Windows build and smoke test pass.
+## Controls
+- Assigned shortcut: start capture
+- Hover and click: capture a visible window
+- Drag: capture an area
+- Esc or ×: cancel
+- Ctrl+V: paste polished PNG
 
-## How it works
+No tray icon, no settings panel, no OCR, no recording, no cloud, and no telemetry.
 
-- **Print Screen** — activate the capture overlay.
-- **Hover + click** — capture the highlighted window.
-- **Click + drag** — capture a custom rectangular area.
-- **Esc** or the on-screen **×** — cancel.
-- Paste immediately with **Ctrl+V**. The clipboard receives a PNG with rounded edges and a soft shadow.
+## Native build
+Windows 11, Visual Studio 2022 C++/CMake and Inno Setup 6.
+1. cmake -S . -B build -A x64
+2. cmake --build build --config Release --target Screenshot
+3. Compile installer.iss with ISCC to dist/ScreenshotCore-Setup.exe
+4. cmake --build build --config Release --target ScreenshotSetup
+5. The custom installer is build/Release/Screenshot-Setup.exe
 
-## Design
+The native custom C++ launcher embeds an Inno silent installation engine for correct uninstall and registry integration. Only custom Screenshot UI is shown.
 
-Native Win32/C++ with Direct2D for the overlay and WIC for PNG encoding. No Electron, Chromium, .NET runtime, browser processes, or telemetry.
+## Known limitations
+Print Screen may require signing out after its Windows Snipping Tool binding is disabled. Third-party occupied shortcuts must be changed in the conflicting application. Capture reads the visible desktop pixels; obscured windows, protected media and HDR may not capture perfectly. The installer is unsigned and may trigger SmartScreen.
 
-The selected Screenshot artwork is copyright © Sander Stripa. The C++ source code uses the MIT License.
-
-## Limitations
-
-Screenshot captures the visible desktop pixels at activation. Hidden or occluded portions of windows are not reconstructed. Protected video surfaces and HDR content may not capture as expected. Windows may reserve Print Screen for Snipping Tool; turn off **Settings → Accessibility → Keyboard → Use the Print Screen key to open screen capture** if the hotkey is taken.
-
-## Build
-
-Use Visual Studio 2022 with the Desktop development with C++ workload and CMake:
-
-```powershell
-cmake -S . -B build -A x64
-cmake --build build --config Release
-.\build\Release\Screenshot.exe --self-test
-```
-
-## About
-
-Screenshot © 2026 Sander Stripa. Windows 11 · native · lightweight · no subscriptions.
+Code MIT; branding and approved logo copyright Sander Stripa.

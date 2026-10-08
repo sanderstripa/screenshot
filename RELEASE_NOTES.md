@@ -1,15 +1,11 @@
-# Screenshot v0.1.0
+# Screenshot v0.2.0
 
-First native Windows 11 preview by Sander Stripa.
+Native Windows 11 screenshot app with a rebuilt custom dark installer.
 
-- Invisible user-session background process, with no tray icon; automatic login startup.
-- **Print Screen** opens a smooth animated screen capture overlay.
-- Hover and click a visible window, or drag to select a rectangle.
-- Cancel via the small floating **×** button or **Esc**.
-- Rounded corners, soft shadow and automatic PNG clipboard transfer.
-- C++/Win32/Direct2D/WIC; no Electron, telemetry, editor, recording, or cloud service.
-- Lightweight per-user installer; no administrator permission required.
+- Custom C++/Direct2D setup, no stock Inno Setup wizard.
+- One-click installation to a fixed per-user folder.
+- Simple progress, completion, first-run shortcut picker and explicit Windows Print Screen replacement confirmation.
+- Native background capture of windows or selected rectangles, with rounded corners and soft shadow.
+- Silent login autostart; no tray icon, cloud, telemetry, or Chromium.
 
-**Limitations:** Captures the visible screen at activation, not obscured window contents. Protected media and HDR can be problematic. If Snipping Tool reserves Print Screen, turn it off in Settings → Accessibility → Keyboard, then restart Screenshot.
-
-**Validation:** GitHub Actions compiles and runs synthetic image-processing/PNG smoke tests. Hands-on Windows 11 GPU/monitor testing is still required.
+**Limitations:** Other applications' hotkeys cannot be forcibly overridden. Windows may require signing out to release Print Screen from Snipping Tool. Visible pixels only, no protected video/HDR guarantee. Unsigned binary may trigger Windows SmartScreen. CI builds and runs native self-tests; physical Windows 11 desktop/monitor testing is still needed.

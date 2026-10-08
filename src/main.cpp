@@ -503,6 +503,23 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(com)) return 2;
+    UINT hotkeyVK = VK_SNAPSHOT;
+    UINT hotkeyModifiers = 0;
+    HKEY configKey = nullptr;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\SanderStripa\\Screenshot",
+            0, KEY_QUERY_VALUE, &configKey) == ERROR_SUCCESS) {
+        DWORD type = 0, size = sizeof(DWORD), value = 0;
+        if (RegQueryValueExW(configKey, L"HotkeyVK", nullptr, &type,
+                reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS
+                && type == REG_DWORD && value >= VK_BACK && value <= VK_F24)
+            hotkeyVK = value;
+        value = 0; type = 0; size = sizeof(DWORD);
+        if (RegQueryValueExW(configKey, L"HotkeyModifiers", nullptr, &type,
+                reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS
+                && type == REG_DWORD)
+            hotkeyModifiers = value & (MOD_CONTROL | MOD_SHIFT | MOD_ALT | MOD_WIN);
+        RegCloseKey(configKey);
+    }
     if (commandLine && wcsstr(commandLine, L"--self-test")) {
         int result = selfTest();
         CoUninitialize();
@@ -532,11 +549,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     current.controller = CreateWindowExW(0, L"ScreenshotController", L"Screenshot",
         0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, instance, nullptr);
     if (!current.controller || !RegisterHotKey(current.controller, HOTKEY_ID,
-        MOD_NOREPEAT, VK_SNAPSHOT)) {
-        MessageBoxW(nullptr, L"Print Screen is already controlled by Windows or another app.\n\n"
-            L"Open Settings > Accessibility > Keyboard, disable "
-            L"\"Use the Print Screen key to open screen capture\", "
-            L"then restart Screenshot.", L"Screenshot — Print Screen unavailable",
+        hotkeyModifiers | MOD_NOREPEAT, hotkeyVK)) {
+        MessageBoxW(nullptr, L"The configured Screenshot shortcut is unavailable.\n\n"
+            L"Run Screenshot Setup again to choose another key. For Print Screen, "
+            L"disable the Snipping Tool key in Windows Settings > Accessibility > Keyboard "
+            L"and sign out if required.", L"Screenshot — shortcut unavailable",
             MB_OK | MB_ICONINFORMATION);
         if (current.controller) DestroyWindow(current.controller);
         CloseHandle(mutex);
