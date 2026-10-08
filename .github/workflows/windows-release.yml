@@ -17,7 +17,7 @@ jobs:
       - name: Smoke test image processing and PNG encoding
         shell: pwsh
         run: |
-           $test = Start-Process -FilePath ".\build\Release\Screenshot.exe" -ArgumentList "--self-test" -Wait -PassThru
+          $test = Start-Process -FilePath ".\build\Release\Screenshot.exe" -ArgumentList "--self-test" -Wait -PassThru
           if ($test.ExitCode -ne 0) {
             throw "Screenshot self-test failed, exit code $($test.ExitCode)"
           }
