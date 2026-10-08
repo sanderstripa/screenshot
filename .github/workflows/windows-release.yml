@@ -1,0 +1,53 @@
+name: Build and publish Screenshot
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native x64 build
+        run: cmake -S . -B build -A x64
+      - name: Build release
+        run: cmake --build build --config Release --parallel 2
+      - name: Smoke test image processing and PNG encoding
+        shell: pwsh
+        run: |
+          & ".\build\Release\Screenshot.exe" --self-test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Screenshot self-test failed, exit code $LASTEXITCODE"
+          }
+      - name: Prepare Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          if (!(Test-Path $iscc)) { throw "Inno Setup 6 was not installed" }
+      - name: Package per-user installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Installer packaging failed" }
+          if (!(Test-Path "dist\Screenshot-Setup.exe")) { throw "Installer missing" }
+      - name: Publish v0.1.0 after successful build and tests
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v0.1.0"
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists; keeping immutable original asset."
+          } else {
+            gh release create $tag "dist/Screenshot-Setup.exe" `
+              --repo "${{ github.repository }}" `
+              --title "Screenshot v0.1.0" `
+              --notes-file "RELEASE_NOTES.md" `
+              --target "${{ github.sha }}" `
+              --latest
+            if ($LASTEXITCODE -ne 0) { throw "Release publishing failed" }
+          }
