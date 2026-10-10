@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
-project(Screenshot VERSION 0.4.1 LANGUAGES CXX RC)
-add_executable(Screenshot WIN32 src/main.cpp assets/screenshot.rc)
+project(Screenshot VERSION 0.5.0 LANGUAGES CXX RC)
+add_executable(Screenshot WIN32 src/main.cpp src/settings.cpp assets/screenshot.rc)
 target_compile_features(Screenshot PRIVATE cxx_std_17)
 target_compile_definitions(Screenshot PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
-target_link_libraries(Screenshot PRIVATE user32 gdi32 d2d1 dwmapi windowscodecs ole32 advapi32 shell32)
+target_link_libraries(Screenshot PRIVATE user32 gdi32 d2d1 dwrite dwmapi windowscodecs ole32 advapi32 shell32)
 # The custom setup executable embeds Screenshot.exe directly. No nested installer.
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/Screenshot.ico" APP_ICON_PATH)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/Screenshot.png" APP_MASTER_PATH)

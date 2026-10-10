@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <shlobj.h>
+#include "settings.h"
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "windowscodecs.lib")
@@ -504,6 +505,7 @@ struct App {
 };
 
 App* app = nullptr;
+std::function<void()> openSettings;
 
 LRESULT CALLBACK overlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_NCCREATE) {
@@ -524,9 +526,10 @@ LRESULT CALLBACK overlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
 LRESULT CALLBACK controllerProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_HOTKEY && wp == HOTKEY_ID) {
-        if (app) app->begin();
+        if (app&&!screenshotSettingsFocused()) app->begin();
         return 0;
     }
+    if(msg==WM_SCREENSHOT_SETTINGS){if(openSettings)openSettings();return 0;}
     if (msg == WM_DESTROY) { PostQuitMessage(0); return 0; }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
@@ -595,8 +598,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
         return result;
     }
 
+    const bool captureNow=commandLine && wcsstr(commandLine,L"--capture-now");
+    const bool background=commandLine && wcsstr(commandLine,L"--background");
+    const bool settingsRequested=!background&&!captureNow;
     HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\Screenshot.SanderStripa.Singleton");
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS) {
+        if(mutex&&settingsRequested) {
+            HWND existing=nullptr;
+            for(int attempt=0;attempt<20&&!existing;++attempt){existing=FindWindowW(L"ScreenshotController",L"Screenshot");if(!existing)Sleep(50);}
+            if(existing){DWORD pid=0;GetWindowThreadProcessId(existing,&pid);AllowSetForegroundWindow(pid);PostMessageW(existing,WM_SCREENSHOT_SETTINGS,0,0);}
+        }
         if (mutex) CloseHandle(mutex);
         CoUninitialize();
         return 0;
@@ -615,22 +626,30 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     overlayClass.hCursor = LoadCursorW(nullptr, IDC_CROSS);
     RegisterClassExW(&controllerClass);
     RegisterClassExW(&overlayClass);
-    current.controller = CreateWindowExW(0, L"ScreenshotController", L"Screenshot",
-        0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, instance, nullptr);
-    const bool captureNow=commandLine && wcsstr(commandLine,L"--capture-now");
-    if (!current.controller || !RegisterHotKey(current.controller, HOTKEY_ID,
+    SetCurrentProcessExplicitAppUserModelID(L"SanderStripa.Screenshot");
+    current.controller = CreateWindowExW(WS_EX_TOOLWINDOW, L"ScreenshotController", L"Screenshot",
+        WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, instance, nullptr);
+    if (!current.controller) {CloseHandle(mutex);CoUninitialize();return 3;}
+    bool hotkeyRegistered=RegisterHotKey(current.controller, HOTKEY_ID,
         captureNow ? MOD_NOREPEAT : hotkeyModifiers | MOD_NOREPEAT,
-        captureNow ? VK_F24 : hotkeyVK)) {
-        MessageBoxW(nullptr, L"The configured Screenshot shortcut is unavailable.\n\n"
-            L"Run Screenshot Setup again to choose another key. For Print Screen, "
-            L"disable the Snipping Tool key in Windows Settings > Accessibility > Keyboard "
-            L"and sign out if required.", L"Screenshot — shortcut unavailable",
-            MB_OK | MB_ICONINFORMATION);
-        if (current.controller) DestroyWindow(current.controller);
-        CloseHandle(mutex);
-        CoUninitialize();
-        return 3;
-    }
+        captureNow ? VK_F24 : hotkeyVK)!=FALSE;
+    int previewTheme=-1;
+    if(commandLine&&wcsstr(commandLine,L"--settings-preview"))previewTheme=wcsstr(commandLine,L"light")?1:0;
+    openSettings=[&] {
+        showScreenshotSettings(instance,hotkeyVK,hotkeyModifiers,hotkeyRegistered,
+            [&](UINT vk,UINT mod) {
+                if(hotkeyRegistered&&vk==hotkeyVK&&mod==hotkeyModifiers)return true;
+                if(!RegisterHotKey(current.controller,HOTKEY_ID+1,mod|MOD_NOREPEAT,vk))return false;
+                UnregisterHotKey(current.controller,HOTKEY_ID+1);
+                if(hotkeyRegistered)UnregisterHotKey(current.controller,HOTKEY_ID);
+                if(!RegisterHotKey(current.controller,HOTKEY_ID,mod|MOD_NOREPEAT,vk)) {
+                    hotkeyRegistered=RegisterHotKey(current.controller,HOTKEY_ID,hotkeyModifiers|MOD_NOREPEAT,hotkeyVK)!=FALSE;
+                    return false;
+                }
+                hotkeyVK=vk;hotkeyModifiers=mod;hotkeyRegistered=true;return true;
+            },previewTheme);
+    };
+    if(settingsRequested||(!hotkeyRegistered&&!captureNow))openSettings();
     // Cooperative shutdown allows the installer to replace a running copy cleanly.
     HANDLE quitEvent = CreateEventW(nullptr, TRUE, FALSE,
         L"Local\\Screenshot.SanderStripa.Exit");
@@ -649,6 +668,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     }
     if(quitEvent) CloseHandle(quitEvent);
     current.dismiss();
+    closeScreenshotSettings();openSettings={};
     UnregisterHotKey(current.controller, HOTKEY_ID);
     if (IsWindow(current.controller)) DestroyWindow(current.controller);
     CloseHandle(mutex);

@@ -305,7 +305,7 @@ struct Installer {
         std::wstring file=std::wstring(local)+L"\\Programs\\Screenshot\\Screenshot.exe";
         STARTUPINFOW si{sizeof(si)};
         PROCESS_INFORMATION pi{};
-        std::wstring cmd=L"\""+file+L"\"";
+        std::wstring cmd=L"\""+file+L"\" --background";
         if(CreateProcessW(file.c_str(),cmd.data(),nullptr,nullptr,FALSE,0,
             nullptr,nullptr,&si,&pi)) {
             CloseHandle(pi.hThread);
@@ -393,14 +393,14 @@ struct Installer {
         if(RegCreateKeyExW(HKEY_CURRENT_USER,
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
-        bool a=writeString(key,L"Screenshot",L"\""+exe+L"\"");
+        bool a=writeString(key,L"Screenshot",L"\""+exe+L"\" --background");
         RegCloseKey(key);
         if(!a)return false;
         if(RegCreateKeyExW(HKEY_CURRENT_USER,
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.4.1") &&
+            writeString(key,L"DisplayVersion",L"0.5.0") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -408,7 +408,30 @@ struct Installer {
             writeDWORD(key,L"NoModify",1) &&
             writeDWORD(key,L"NoRepair",1);
         RegCloseKey(key);
-        return ok;
+        return ok&&createStartMenuShortcut(dir);
+    }
+    std::wstring shortcutPath() {
+        wchar_t programs[MAX_PATH]{};
+        if(FAILED(SHGetFolderPathW(nullptr,CSIDL_PROGRAMS,nullptr,0,programs)))return {};
+        return std::wstring(programs)+L"\\Screenshot.lnk";
+    }
+    bool createStartMenuShortcut(const std::wstring& dir) {
+        HRESULT initialized=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
+        if(FAILED(initialized)&&initialized!=RPC_E_CHANGED_MODE)return false;
+        bool ok=false;
+        {
+            ComPtr<IShellLinkW> link;
+            ComPtr<IPersistFile> file;
+            const auto path=shortcutPath();const auto exe=dir+L"\\Screenshot.exe";
+            if(!path.empty()&&SUCCEEDED(CoCreateInstance(CLSID_ShellLink,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&link)))&&
+                SUCCEEDED(link->SetPath(exe.c_str()))&&SUCCEEDED(link->SetArguments(L"--settings"))&&
+                SUCCEEDED(link->SetWorkingDirectory(dir.c_str()))&&SUCCEEDED(link->SetIconLocation(exe.c_str(),0))&&
+                SUCCEEDED(link->SetDescription(L"Screenshot — настройки и горячая клавиша"))&&SUCCEEDED(link.As(&file))) {
+                ok=SUCCEEDED(file->Save(path.c_str(),TRUE));
+                if(ok)SHChangeNotify(SHCNE_UPDATEITEM,SHCNF_PATHW,path.c_str(),nullptr);
+            }
+        }
+        if(SUCCEEDED(initialized))CoUninitialize();return ok;
     }
     int uninstall() {
         std::wstring dir=installDirectory();
@@ -420,6 +443,7 @@ struct Installer {
         RegDeleteTreeW(HKEY_CURRENT_USER,
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot");
         DeleteFileW(exe.c_str());
+        const auto shortcut=shortcutPath();if(!shortcut.empty())DeleteFileW(shortcut.c_str());
         std::wstring self=dir+L"\\Uninstall.exe";
         MoveFileExW(self.c_str(),nullptr,MOVEFILE_DELAY_UNTIL_REBOOT);
         RemoveDirectoryW(dir.c_str());
