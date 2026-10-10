@@ -23,12 +23,14 @@ Screenshot captures a visible window or any screen region, adds rounded corners 
 - **Save and paste.** Every successful capture creates a PNG file and puts the identical PNG in the clipboard.
 - **Ready at login.** A small native background app with automatic startup and no tray icon.
 - **A native Windows 11 installer.** Dark UI, real rounded window corners, crisp text and high-resolution artwork.
-- **Your shortcut.** Choose a hotkey after installation; replacing Windows' Print Screen action requires explicit confirmation.
+- **Settings in Start.** Open Screenshot from the Start menu to change the shortcut without restarting the app.
+- **Light and dark themes.** One unlabeled toggle in the title row switches the settings palette. Both settings and installer use Montserrat.
+- **Your shortcut.** Replacing Windows' Print Screen action requires explicit confirmation.
 - **Safe updates.** The installer replaces a running previous version and keeps your shortcut settings.
 
 ## Install
 
-Download [**Screenshot-Setup.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-Setup.exe), run it and click **Install**. The current release is [**v0.4.1**](https://github.com/sanderstripa/screenshot/releases/tag/v0.4.1), with the supplied high-resolution Screenshot icon throughout the app and installer.
+Download [**Screenshot-Setup.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-Setup.exe), run it and click **Install**. The current release is [**v0.5.0**](https://github.com/sanderstripa/screenshot/releases/tag/v0.5.0), with the supplied high-resolution Screenshot icon throughout the app and installer.
 
 Installation runs under your Windows account without administrator privileges. It installs to `%LOCALAPPDATA%\Programs\Screenshot` and registers automatic startup at login. After installation, choose a hotkey. Print Screen is the default; Screenshot asks before changing its built-in Windows action. Windows may require signing out for that change to apply.
 
@@ -76,3 +78,4 @@ Screenshots are captured from visible desktop pixels, so occluded windows, HDR a
 Source code MIT licensed. Original icon and branding © Sander Stripa.
 
 Made by [Sander Stripa](https://github.com/sanderstripa). [About Screenshot](ABOUT.md).
+

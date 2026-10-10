@@ -1,4 +1,21 @@
-# Windows 11 verification — 2026-10-09
+# Windows 11 verification — 2026-10-11
+
+## v0.5.0 — Start menu settings and shared UI
+
+Tested downloaded candidate v0.5.0-rc.2 on Windows 11 build 26100. Final release publishes these exact tested bytes: SHA-256 `4a0e4caaca351728231e14d0988021868ebe50e9e5ba1959c70f086606ca75cf`.
+
+- PASS upgrade over the installed v0.5.0-rc.1.
+- PASS Start menu shortcut target, arguments and icon; launch forwards to the existing background process.
+- PASS hidden autostart, no settings on login; closing settings leaves capture running.
+- PASS F24 to F23 applies live, old key released, new key registered by the same process.
+- PASS occupied F22 refused while current working key and configuration remain intact.
+- PASS Print Screen shows confirmation; cancellation leaves Windows binding and current shortcut unchanged.
+- PASS theme and shortcut persist across a complete process restart.
+- PASS both settings themes at 100/125/150/200/250%, with a clickable title-row toggle and exact reference background colors.
+- PASS all six installer stages at the same five scales (30 combinations), correct window dimensions and #0A0A0A background; actual screenshots visually reviewed for layout and Montserrat rendering.
+- PASS PNG disk/clipboard self-test after settings changes.
+
+Regression scripts: `scripts/test_settings.ps1`, `scripts/test_installer.ps1`. Settings tests restore the user's original shortcut, theme and Print Screen configuration. Screenshots stay local.
 
 ## v0.4.1 — supplied icon
 
@@ -34,3 +51,4 @@ Installer SHA-256: `4f933e491b357cec05786071e2519470c4b0ad4b12eb2f7d099e33363fed
 Desktop checks: `scripts/test_ui.py`, `scripts/test_capture.py`, `scripts/test_wizard.py`. Python with Pillow is only needed for testing. Screenshots stay local and are not published.
 
 At v0.4.0 the approved attachment was unavailable. The user has since supplied it and v0.4.1 installs that design.
+
