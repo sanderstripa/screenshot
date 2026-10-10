@@ -7,8 +7,9 @@ target_link_libraries(Screenshot PRIVATE user32 gdi32 d2d1 dwrite dwmapi windows
 # The custom setup executable embeds Screenshot.exe directly. No nested installer.
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/Screenshot.ico" APP_ICON_PATH)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/Screenshot.png" APP_MASTER_PATH)
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/Montserrat.ttf" APP_FONT_PATH)
 file(TO_CMAKE_PATH "${CMAKE_CURRENT_BINARY_DIR}/Release/Screenshot.exe" PAYLOAD_PATH)
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/setup_payload.rc" "101 ICON \"${APP_ICON_PATH}\"\n201 RCDATA \"${APP_MASTER_PATH}\"\n301 RCDATA \"${PAYLOAD_PATH}\"\n")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/setup_payload.rc" "101 ICON \"${APP_ICON_PATH}\"\n201 RCDATA \"${APP_MASTER_PATH}\"\n202 RCDATA \"${APP_FONT_PATH}\"\n301 RCDATA \"${PAYLOAD_PATH}\"\n")
 add_executable(ScreenshotSetup WIN32 src/setup.cpp "${CMAKE_CURRENT_BINARY_DIR}/setup_payload.rc")
 add_dependencies(ScreenshotSetup Screenshot)
 target_compile_features(ScreenshotSetup PRIVATE cxx_std_17)
@@ -21,3 +22,4 @@ if(MSVC)
         target_link_options(${target} PRIVATE /OPT:REF /OPT:ICF)
     endforeach()
 endif()
+

@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <d2d1.h>
 #include <dwrite.h>
+#include "bundled_font.h"
 #include <wrl/client.h>
 #include <string>
 #include <atomic>
@@ -70,7 +71,37 @@ struct Installer {
     std::thread worker;
     ComPtr<IDWriteFactory> fonts;
     ComPtr<IDWriteTextFormat> regular, medium, smallText, headline;
+    ComPtr<FontLoader> fontLoader;
+    ComPtr<IDWriteFontCollection> collection;
+    std::wstring fontPath;
     HICON icon = nullptr;
+    bool initializeFonts() {
+        if(FAILED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),
+            reinterpret_cast<IUnknown**>(fonts.GetAddressOf()))))return false;
+        wchar_t temp[MAX_PATH]{},file[MAX_PATH]{};
+        HRSRC resource=FindResourceW(instance,MAKEINTRESOURCEW(202),RT_RCDATA);
+        if(resource&&GetTempPathW(MAX_PATH,temp)&&GetTempFileNameW(temp,L"ssf",0,file)) {
+            fontPath=file;
+            HANDLE output=CreateFileW(file,GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,nullptr);
+            DWORD written=0,size=SizeofResource(instance,resource);
+            if(output!=INVALID_HANDLE_VALUE) {
+                bool valid=WriteFile(output,LockResource(LoadResource(instance,resource)),size,&written,nullptr)&&written==size;
+                CloseHandle(output);
+                if(valid) {
+                    fontLoader=Make<FontLoader>();
+                    if(SUCCEEDED(fonts->RegisterFontCollectionLoader(fontLoader.Get())))
+                        fonts->CreateCustomFontCollection(fontLoader.Get(),file,static_cast<UINT32>((wcslen(file)+1)*sizeof(wchar_t)),&collection);
+                }
+            }
+        }
+        const wchar_t* family=collection?L"Montserrat":L"Segoe UI";
+        auto create=[&](float size,DWRITE_FONT_WEIGHT weight,ComPtr<IDWriteTextFormat>& font) {
+            return SUCCEEDED(fonts->CreateTextFormat(family,collection.Get(),weight,DWRITE_FONT_STYLE_NORMAL,
+                DWRITE_FONT_STRETCH_NORMAL,size,L"ru-ru",&font));
+        };
+        return create(16,DWRITE_FONT_WEIGHT_NORMAL,regular)&&create(15,DWRITE_FONT_WEIGHT_MEDIUM,medium)
+            &&create(12,DWRITE_FONT_WEIGHT_NORMAL,smallText)&&create(25,DWRITE_FONT_WEIGHT_MEDIUM,headline);
+    }
 
     void fill(D2D1_RECT_F rect,D2D1_COLOR_F c) {
         brush->SetColor(c); target->FillRectangle(rect,brush.Get());
@@ -91,63 +122,32 @@ struct Installer {
             D2D1::RectF(x,y,x+width,y+height),brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);
     }
     void background() {
-        // Soft, window-sized blue-black lighting, not a bitmap stretched to fit.
-        ComPtr<ID2D1GradientStopCollection> stops;
-        D2D1_GRADIENT_STOP sg[3] = {
-            {0,D2D1::ColorF(0.018f,0.040f,0.071f)},
-            {.56f,D2D1::ColorF(0.039f,0.071f,0.126f)},
-            {1,D2D1::ColorF(0.020f,0.055f,0.133f)}
-        };
-        if(SUCCEEDED(target->CreateGradientStopCollection(sg,3,&stops))) {
-            ComPtr<ID2D1LinearGradientBrush> lg;
-            target->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(
-                D2D1::Point2F(10,0),D2D1::Point2F(630,425)),stops.Get(),&lg);
-            if(lg) target->FillRectangle(D2D1::RectF(0,0,W,H),lg.Get());
-        }
-        // Delicate diagonal cobalt shape echoing the selected first mockup.
-        ComPtr<ID2D1PathGeometry> path;
-        if(SUCCEEDED(factory->CreatePathGeometry(&path))) {
-            ComPtr<ID2D1GeometrySink> sink;
-            if(SUCCEEDED(path->Open(&sink))) {
-                sink->BeginFigure(D2D1::Point2F(462,400),D2D1_FIGURE_BEGIN_FILLED);
-                sink->AddBezier(D2D1::BezierSegment(D2D1::Point2F(505,282),
-                    D2D1::Point2F(611,227),D2D1::Point2F(640,164)));
-                sink->AddLine(D2D1::Point2F(640,400));
-                sink->EndFigure(D2D1_FIGURE_END_CLOSED);
-                sink->Close();
-                brush->SetColor(D2D1::ColorF(.025f,.22f,.58f,.16f));
-                target->FillGeometry(path.Get(),brush.Get());
-            }
-        }
-        outline(D2D1::RectF(.5f,.5f,W-.5f,H-.5f),8,
-            D2D1::ColorF(.53f,.68f,.89f,.38f));
+        target->Clear(D2D1::ColorF(0x0A0A0A));
     }
     void header() {
-        label(L"Screenshot",64,17,220,32,smallText.Get(),D2D1::ColorF(.96f,.98f,1));
+        label(L"Screenshot",64,17,220,32,smallText.Get(),D2D1::ColorF(0xF4F4F4));
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
-        brush->SetColor(D2D1::ColorF(.70f,.79f,.91f));
+        brush->SetColor(D2D1::ColorF(0x8B8E94));
         target->DrawLine(D2D1::Point2F(553,27),D2D1::Point2F(564,27),brush.Get(),1.2f);
         target->DrawLine(D2D1::Point2F(598,20),D2D1::Point2F(608,30),brush.Get(),1.25f);
         target->DrawLine(D2D1::Point2F(608,20),D2D1::Point2F(598,30),brush.Get(),1.25f);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
-        rounded(rect,13,D2D1::ColorF(active?.055f:.13f,active?.39f:.16f,
-            active?.95f:.21f,1));
-        outline(rect,13,D2D1::ColorF(.47f,.72f,1,.34f));
+        rounded(rect,13,D2D1::ColorF(active?0x141414:0x0A0A0A));
+        outline(rect,13,D2D1::ColorF(0x333639));
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,medium.Get(),
             D2D1::ColorF(1,1,1),DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
-        rounded(rect,12,D2D1::ColorF(.12f,.17f,.25f,.94f));
-        outline(rect,12,D2D1::ColorF(.53f,.66f,.83f,.36f));
+        rounded(rect,12,D2D1::ColorF(0x141414));
+        outline(rect,12,D2D1::ColorF(0x333639));
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
-            D2D1::ColorF(.91f,.94f,1),DWRITE_TEXT_ALIGNMENT_CENTER);
+            D2D1::ColorF(0xF4F4F4),DWRITE_TEXT_ALIGNMENT_CENTER);
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
     void ring(float x,float y,bool warning=false,bool green=false) {
-        auto color=warning?D2D1::ColorF(1,.67f,.19f):
-            green?D2D1::ColorF(.30f,.86f,.71f):D2D1::ColorF(.45f,.72f,1);
+        auto color=D2D1::ColorF(0xF4F4F4);
         brush->SetColor(color);
         target->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(x,y),40,40),brush.Get(),3.6f);
         if(warning) {
@@ -161,18 +161,18 @@ struct Installer {
         }
     }
     void content() {
-        const auto white=D2D1::ColorF(.96f,.97f,1);
-        const auto muted=D2D1::ColorF(.72f,.79f,.89f);
+        const auto white=D2D1::ColorF(0xF4F4F4);
+        const auto muted=D2D1::ColorF(0x8B8E94);
         if(step==Welcome) {
             label(L"Screenshot",40,231,560,50,headline.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
             button(primaryRect(step),L"Установить  →");
         }
         if(step==Installing) {
             label(L"Установка Screenshot",43,112,550,54,headline.Get(),white);
-            rounded(D2D1::RectF(44,203,593,221),9,D2D1::ColorF(.19f,.25f,.35f,.90f));
+            rounded(D2D1::RectF(44,203,593,221),9,D2D1::ColorF(0x333639));
             int p=progress.load();
             float f=std::clamp(p/100.0f,0.0f,1.0f);
-            if(f>0) rounded(D2D1::RectF(44,203,44+549*f,221),9,D2D1::ColorF(.10f,.43f,.99f));
+            if(f>0) rounded(D2D1::RectF(44,203,44+549*f,221),9,D2D1::ColorF(0xF4F4F4));
             label(std::to_wstring(p)+L"%",527,237,70,31,regular.Get(),muted,
                 DWRITE_TEXT_ALIGNMENT_TRAILING);
             if(result.load()>=1) {
@@ -192,11 +192,10 @@ struct Installer {
             label(L"Горячая клавиша",40,93,560,53,headline.Get(),white);
             label(L"Нажмите клавишу для создания скриншота.",40,146,563,34,
                 regular.Get(),muted);
-            rounded(inputRect(),11,D2D1::ColorF(.018f,.031f,.052f,.94f));
-            outline(inputRect(),11,D2D1::ColorF(listening?.41f:.37f,
-                listening?.67f:.50f,listening?1.0f:.68f));
-            label(listening?L"Нажмите клавишу…":config.title,57,198,520,37,
-                medium.Get(),white);
+            rounded(inputRect(),11,D2D1::ColorF(0x0A0A0A));
+            outline(inputRect(),11,D2D1::ColorF(listening?0x8B8E94:0x333639));
+            label(listening?L"Нажмите клавишу…":config.title,57,184,520,65,
+                medium.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
             if(listening) label(L"Esc — отмена",40,262,300,30,smallText.Get(),muted);
             button(primaryRect(step),L"Далее  →");
         }
@@ -662,17 +661,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     Installer setup;setup.instance=instance;
     setup.scale=std::clamp(GetDpiForSystem()/96.0f,1.0f,2.5f);
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,setup.factory.GetAddressOf());
-    DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),
-        reinterpret_cast<IUnknown**>(setup.fonts.GetAddressOf()));
-    if(!setup.factory||!setup.fonts){CoUninitialize();return 3;}
-    setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_NORMAL,
-        DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,18,L"ru-ru",&setup.regular);
-    setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
-        DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,17,L"ru-ru",&setup.medium);
-    setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_NORMAL,
-        DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,14,L"ru-ru",&setup.smallText);
-    setup.fonts->CreateTextFormat(L"Segoe UI",nullptr,DWRITE_FONT_WEIGHT_SEMI_BOLD,
-        DWRITE_FONT_STYLE_NORMAL,DWRITE_FONT_STRETCH_NORMAL,30,L"ru-ru",&setup.headline);
+    if(!setup.factory||!setup.initializeFonts()){CoUninitialize();return 3;}
     setup.medium->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
     // Preview mode exercises the actual native UI without installing anything.
     if(commandLine && wcsstr(commandLine,L"--preview")) {
@@ -729,7 +718,11 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     if(setup.largeIcon)DestroyIcon(setup.largeIcon);
     setup.icon=nullptr;
     setup.regular.Reset();setup.medium.Reset();setup.smallText.Reset();setup.headline.Reset();
-    setup.fonts.Reset();setup.factory.Reset();
+    setup.collection.Reset();
+    if(setup.fontLoader)setup.fonts->UnregisterFontCollectionLoader(setup.fontLoader.Get());
+    setup.fontLoader.Reset();setup.fonts.Reset();setup.factory.Reset();
+    if(!setup.fontPath.empty())DeleteFileW(setup.fontPath.c_str());
     CoUninitialize();
     return 0;
 }
+

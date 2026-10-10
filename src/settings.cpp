@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include "settings.h"
+#include "bundled_font.h"
 #include <windowsx.h>
 #include <d2d1.h>
 #include <dwrite_1.h>
@@ -18,27 +19,8 @@ using Microsoft::WRL::RuntimeClass;
 using Microsoft::WRL::RuntimeClassFlags;
 using Microsoft::WRL::ClassicCom;
 namespace {
-constexpr int WIDTH=520, HEIGHT=440;
+constexpr int WIDTH=520, HEIGHT=340;
 constexpr wchar_t CONFIG[]=L"Software\\SanderStripa\\Screenshot";
-class FontEnumerator final : public RuntimeClass<RuntimeClassFlags<ClassicCom>,IDWriteFontFileEnumerator> {
-    ComPtr<IDWriteFactory> factory;
-    std::wstring path;
-    bool visited=false;
-public:
-    FontEnumerator(IDWriteFactory* f,const wchar_t* p):factory(f),path(p){}
-    HRESULT STDMETHODCALLTYPE MoveNext(BOOL* next) override {*next=!visited;visited=true;return S_OK;}
-    HRESULT STDMETHODCALLTYPE GetCurrentFontFile(IDWriteFontFile** file) override {
-        return factory->CreateFontFileReference(path.c_str(),nullptr,file);
-    }
-};
-class FontLoader final : public RuntimeClass<RuntimeClassFlags<ClassicCom>,IDWriteFontCollectionLoader> {
-public:
-    HRESULT STDMETHODCALLTYPE CreateEnumeratorFromKey(IDWriteFactory* factory,const void* key,
-        UINT32 bytes,IDWriteFontFileEnumerator** enumerator) override {
-        if(!key || bytes<sizeof(wchar_t))return E_INVALIDARG;
-        return Make<FontEnumerator>(factory,static_cast<const wchar_t*>(key)).CopyTo(enumerator);
-    }
-};
 bool readDword(const wchar_t* name,DWORD& value) {
     DWORD size=sizeof(value);
     return RegGetValueW(HKEY_CURRENT_USER,CONFIG,name,RRF_RT_REG_DWORD,nullptr,&value,&size)==ERROR_SUCCESS;
@@ -135,33 +117,31 @@ struct Settings {
         brush->SetColor(color(muted()));
         target->DrawLine(D2D1::Point2F(481,31),D2D1::Point2F(489,39),brush.Get(),1);
         target->DrawLine(D2D1::Point2F(489,31),D2D1::Point2F(481,39),brush.Get(),1);
+        auto toggle=D2D1::RectF(413,24,455,46);
+        round(toggle,11,light?0xF7F7F7:0x0A0A0A);round(toggle,11,border(),false);
+        brush->SetColor(color(light?0x62666B:0x888B90));
+        target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(light?444.0f:424.0f,35),7,7),brush.Get());
         line(80);
         if(confirmation) {
             text(L"PRINT SCREEN",D2D1::RectF(28,104,492,133),section.Get(),ink(),1);
-            text(L"Заменить системное действие клавиши?",D2D1::RectF(28,152,492,211),body.Get(),ink());
+            text(L"Заменить системное действие клавиши?",D2D1::RectF(28,144,492,179),body.Get(),ink());
             text(L"Print Screen будет открывать Screenshot вместо «Ножниц». Windows может потребовать выхода из сеанса.",
-                D2D1::RectF(28,220,492,305),body.Get(),muted());
-            line(372);
-            button(D2D1::RectF(28,390,182,426),L"Отмена");
-            button(D2D1::RectF(316,390,492,426),L"Да, заменить");
+                D2D1::RectF(28,190,492,260),body.Get(),muted());
+            line(272);
+            button(D2D1::RectF(28,290,182,326),L"Отмена");
+            button(D2D1::RectF(316,290,492,326),L"Да, заменить");
         } else {
-            text(L"ВНЕШНИЙ ВИД",D2D1::RectF(28,103,400,128),section.Get(),ink(),1);
-            text(L"Светлая тема",D2D1::RectF(28,143,400,169),body.Get(),ink());
-            auto toggle=D2D1::RectF(450,140,492,162);
-            round(toggle,11,light?0xF7F7F7:0x0A0A0A);round(toggle,11,border(),false);
-            brush->SetColor(color(light?0x62666B:0x888B90));
-            target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(light?481.0f:461.0f,151),7,7),brush.Get());
-            line(193);
-            text(L"ГОРЯЧАЯ КЛАВИША",D2D1::RectF(28,215,492,240),section.Get(),ink(),1);
-            round(D2D1::RectF(28,248,492,292),14,light?0xF9F9F9:0x0A0A0A);
-            round(D2D1::RectF(28,248,492,292),14,listening?muted():border(),false);
+
+            text(L"ГОРЯЧАЯ КЛАВИША",D2D1::RectF(28,115,492,140),section.Get(),ink(),1);
+            round(D2D1::RectF(28,148,492,192),14,light?0xF9F9F9:0x0A0A0A);
+            round(D2D1::RectF(28,148,492,192),14,listening?muted():border(),false);
             text(listening?L"Нажмите сочетание…":shortcutName(vk,mod),
-                D2D1::RectF(42,257,478,285),body.Get(),ink());
+                D2D1::RectF(42,148,478,192),body.Get(),ink(),0,true);
             text(status.empty()?(listening?L"Esc — отмена":L"Нажмите поле, затем нужную клавишу или сочетание."):status,
-                D2D1::RectF(28,307,492,360),hintFont.Get(),muted());
-            line(372);
-            button(D2D1::RectF(28,390,210,426),L"Открыть папку");
-            button(D2D1::RectF(340,390,492,426),L"Сохранить");
+                D2D1::RectF(28,207,492,260),hintFont.Get(),muted());
+            line(272);
+            button(D2D1::RectF(28,290,210,326),L"Открыть папку");
+            button(D2D1::RectF(340,290,492,326),L"Сохранить");
         }
         HRESULT result=target->EndDraw();
         if(result==D2DERR_RECREATE_TARGET){brush.Reset();target.Reset();}
@@ -238,18 +218,18 @@ struct Settings {
     void click(float x,float y) {
         if(y<70&&x>464){DestroyWindow(hwnd);return;}
         if(confirmation) {
-            if(y>=390&&x<210){confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);}
-            else if(y>=390&&x>=316)save(true);
+            if(y>=290&&x<210){confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);}
+            else if(y>=290&&x>=316)save(true);
             return;
         }
-        if(x>=436&&x<=502&&y>=126&&y<=178) {
+        if(x>=405&&x<=460&&y>=18&&y<=52) {
             light=!light;
             if(!preview&&!writeDword(L"ThemeLight",light?1:0)){light=!light;status=L"Не удалось сохранить тему.";}
             theme();return;
         }
-        if(x>=28&&x<=492&&y>=248&&y<=292){listening=true;status.clear();InvalidateRect(hwnd,nullptr,FALSE);return;}
-        if(y>=390&&x>=340){save();return;}
-        if(y>=390&&x>=28&&x<=210) {
+        if(x>=28&&x<=492&&y>=148&&y<=192){listening=true;status.clear();InvalidateRect(hwnd,nullptr,FALSE);return;}
+        if(y>=290&&x>=340){save();return;}
+        if(y>=290&&x>=28&&x<=210) {
             wchar_t profile[32768]{};
             if(GetEnvironmentVariableW(L"USERPROFILE",profile,32768)) {
                 std::wstring folder=std::wstring(profile)+L"\\Pictures\\Screenshot";
@@ -266,7 +246,7 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
     if(!s)return DefWindowProcW(hwnd,message,wp,lp);
     switch(message) {
     case WM_NCCALCSIZE:if(wp)return 0;break;
-    case WM_NCHITTEST:{POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ScreenToClient(hwnd,&p);if(p.y/s->scale<70&&p.x/s->scale<460)return HTCAPTION;break;}
+    case WM_NCHITTEST:{POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ScreenToClient(hwnd,&p);if(p.y/s->scale<70&&p.x/s->scale<400)return HTCAPTION;break;}
     case WM_ERASEBKGND:return 1;
     case WM_PAINT:s->paint();return 0;
     case WM_SIZE:s->brush.Reset();s->target.Reset();InvalidateRect(hwnd,nullptr,FALSE);return 0;
@@ -323,3 +303,5 @@ void closeScreenshotSettings() {
 bool screenshotSettingsFocused() {
     return settings&&settings->hwnd&&GetForegroundWindow()==settings->hwnd;
 }
+
+

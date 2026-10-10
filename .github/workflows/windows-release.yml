@@ -52,12 +52,21 @@ jobs:
         run: |
           $launch = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run").Screenshot
           if (!$launch.Contains("Screenshot.exe")) { throw "Autostart registration invalid" }
+          if (!$launch.Contains("--background")) { throw "Login startup must stay in the background" }
+          $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'Screenshot.lnk'
+          if (!(Test-Path -LiteralPath $shortcutPath)) { throw "Start menu shortcut missing" }
+          $shell = New-Object -ComObject WScript.Shell
+          $shortcut = $shell.CreateShortcut($shortcutPath)
+          if ($shortcut.Arguments -ne '--settings' -or $shortcut.TargetPath -ne "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe") {
+            throw "Start menu must open the application settings"
+          }
           $uninst = "$env:LOCALAPPDATA\Programs\Screenshot\Uninstall.exe"
           $remove = Start-Process -FilePath $uninst -ArgumentList "--uninstall" -Wait -PassThru
           if ($remove.ExitCode -ne 0) { throw "Uninstaller failed: $($remove.ExitCode)" }
           if (Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe") {
             throw "Executable remains after uninstall"
           }
+          if (Test-Path -LiteralPath $shortcutPath) { throw "Start menu shortcut remains after uninstall" }
       - name: Verify actual saved PNG and clipboard
         shell: pwsh
         run: |
@@ -73,7 +82,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.5.0-rc.1"
+          $tag = "v0.5.0-rc.2"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
@@ -84,3 +93,4 @@ jobs:
               --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+
