@@ -1,5 +1,18 @@
 # Windows 11 verification — 2026-10-11
 
+## v0.5.1 — installer language and theme
+
+Downloaded v0.5.1-rc.1 tested on Windows 11 build 26100. SHA-256: `f4d88b202390b925b153adadaa08b04b1c4e4081790ac49a982ad5c9d823dfae`. The final release publishes these same bytes.
+
+- PASS actual RU → EN → RU clicks; original UI restored byte for byte.
+- PASS dark → light → dark clicks; current language retained and exact reference background colors used.
+- PASS upgrade via the actual light English wizard; Installation complete → Keyboard shortcut remains light and English.
+- PASS all six installer stages, both themes, both languages and five DPI scales: 120 combinations. Window sizes and background colors checked; captured screens visually reviewed.
+- PASS PNG disk/clipboard after the update; user's existing shortcut retained and background process restarted.
+- PASS Windows CI install, reinstall, live upgrade, shortcut/autostart registration and uninstall.
+
+Scripts: `scripts/test_installer.ps1`, `scripts/test_installer_switches.ps1`. Window lookup is restricted to each test's process ID so a separately opened installer is not captured. Test screenshots remain local.
+
 ## v0.5.0 — Start menu settings and shared UI
 
 Tested downloaded candidate v0.5.0-rc.2 on Windows 11 build 26100. Final release publishes these exact tested bytes: SHA-256 `4a0e4caaca351728231e14d0988021868ebe50e9e5ba1959c70f086606ca75cf`.
@@ -51,4 +64,3 @@ Installer SHA-256: `4f933e491b357cec05786071e2519470c4b0ad4b12eb2f7d099e33363fed
 Desktop checks: `scripts/test_ui.py`, `scripts/test_capture.py`, `scripts/test_wizard.py`. Python with Pillow is only needed for testing. Screenshots stay local and are not published.
 
 At v0.4.0 the approved attachment was unavailable. The user has since supplied it and v0.4.1 installs that design.
-

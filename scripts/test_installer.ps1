@@ -7,6 +7,15 @@ using System.Runtime.InteropServices;
 public static class SettingsNative {
  [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left,Top,Right,Bottom; }
  [DllImport("user32.dll",CharSet=CharSet.Unicode,EntryPoint="FindWindowW")] private static extern IntPtr FindWindowNative(string cls,string title);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent,IntPtr after,string cls,string title);
+ [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint pid);
+ public static IntPtr FindForProcess(string cls,int expected) {
+   IntPtr hwnd=IntPtr.Zero;
+   while((hwnd=FindWindowEx(IntPtr.Zero,hwnd,cls,null))!=IntPtr.Zero) {
+     uint pid;GetWindowThreadProcessId(hwnd,out pid);if(pid==(uint)expected)return hwnd;
+   }
+   return IntPtr.Zero;
+ }
  public static IntPtr FindWindow(string cls,string title) { return FindWindowNative(String.IsNullOrEmpty(cls)?null:cls,String.IsNullOrEmpty(title)?null:title); }
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd,out Rect rect);
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
@@ -33,13 +42,15 @@ public static class SettingsNative {
 New-Item -ItemType Directory -Path $Output -Force|Out-Null
 $Output=(Resolve-Path $Output).Path
 $Setup=(Resolve-Path $Setup).Path
+foreach($theme in 'dark','light') {
+foreach($language in 'ru','en') {
 foreach($dpi in 96,120,144,192,240) {
     foreach($step in 0..5) {
-        $process=Start-Process -FilePath $Setup -ArgumentList "--preview $step $dpi" -WindowStyle Hidden -PassThru
+        $process=Start-Process -FilePath $Setup -ArgumentList "--preview $step $dpi $theme $language" -WindowStyle Hidden -PassThru
         $hwnd=[IntPtr]::Zero
         try {
             for($i=0;$i -lt 100;$i++) {
-                $hwnd=[SettingsNative]::FindWindow('ScreenshotPremiumSetup',$null)
+                $hwnd=[SettingsNative]::FindForProcess('ScreenshotPremiumSetup',$process.Id)
                 if($hwnd -ne [IntPtr]::Zero){break}
                 if($process.HasExited){throw 'Installer preview exited'}
                 Start-Sleep -Milliseconds 50
@@ -53,16 +64,16 @@ foreach($dpi in 96,120,144,192,240) {
             $bitmap=[Drawing.Bitmap]::new($w,$h);$graphics=[Drawing.Graphics]::FromImage($bitmap);$dc=$graphics.GetHdc()
             try {if(![SettingsNative]::PrintWindow($hwnd,$dc,2)){throw 'Installer rendering failed'}}
             finally {$graphics.ReleaseHdc($dc);$graphics.Dispose()}
-            $bitmap.Save((Join-Path $Output "stage-$step-dpi-$dpi.png"),[Drawing.Imaging.ImageFormat]::Png)
+            $bitmap.Save((Join-Path $Output "$theme-$language-stage-$step-dpi-$dpi.png"),[Drawing.Imaging.ImageFormat]::Png)
             $pixel=$bitmap.GetPixel([int](20*$dpi/96),[int](300*$dpi/96))
-            if($pixel.R -ne 10 -or $pixel.G -ne 10 -or $pixel.B -ne 10){throw "Installer reference palette mismatch: $pixel"}
-            $bitmap.Save((Join-Path $Output "stage-$step-dpi-$dpi.png"),[Drawing.Imaging.ImageFormat]::Png);$bitmap.Dispose()
-            "PASS installer stage=$step dpi=$dpi size=${w}x${h}" | Tee-Object -FilePath (Join-Path $Output 'installer-tests.txt') -Append
+            if($pixel.R -ne $(if($theme -eq 'light'){245}else{10}) -or $pixel.G -ne $pixel.R -or $pixel.B -ne $pixel.R){throw "Installer reference palette mismatch: $pixel"}
+            $bitmap.Save((Join-Path $Output "$theme-$language-stage-$step-dpi-$dpi.png"),[Drawing.Imaging.ImageFormat]::Png);$bitmap.Dispose()
+            "PASS installer theme=$theme language=$language stage=$step dpi=$dpi size=${w}x${h}" | Tee-Object -FilePath (Join-Path $Output 'installer-tests.txt') -Append
         } finally {
             if($hwnd -ne [IntPtr]::Zero){[SettingsNative]::PostMessage($hwnd,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null}
             if(!$process.WaitForExit(5000)){Stop-Process -Id $process.Id}
         }
     }
 }
-
-
+}
+}
