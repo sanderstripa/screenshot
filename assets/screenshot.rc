@@ -2,8 +2,8 @@
 101 ICON "Screenshot.ico"
 202 RCDATA "fonts/Montserrat.ttf"
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,5,0,0
- PRODUCTVERSION 0,5,0,0
+ FILEVERSION 0,5,1,0
+ PRODUCTVERSION 0,5,1,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0x0L
  FILEOS 0x40004L
@@ -16,11 +16,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Screenshot\0"
             VALUE "FileDescription", "Screenshot - native screen capture\0"
-            VALUE "FileVersion", "0.5.0.0\0"
+            VALUE "FileVersion", "0.5.1.0\0"
             VALUE "InternalName", "Screenshot\0"
             VALUE "OriginalFilename", "Screenshot.exe\0"
             VALUE "ProductName", "Screenshot\0"
-            VALUE "ProductVersion", "0.5.0\0"
+            VALUE "ProductVersion", "0.5.1\0"
             VALUE "LegalCopyright", "Copyright (c) 2026 Sander Stripa\0"
         END
     END
@@ -29,3 +29,4 @@ BEGIN
         VALUE "Translation", 0x409, 1200
     END
 END
+

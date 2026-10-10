@@ -62,6 +62,13 @@ struct Installer {
     std::atomic<int> result{-99};
     std::atomic<bool> working{false};
     bool listening = false;
+    bool light = false, english = false;
+    const wchar_t* tr(const wchar_t* ru,const wchar_t* en) const {return english?en:ru;}
+    D2D1_COLOR_F ink() const {return D2D1::ColorF(light?0x111111:0xF4F4F4);}
+    D2D1_COLOR_F mutedInk() const {return D2D1::ColorF(light?0x75797F:0x8B8E94);}
+    D2D1_COLOR_F edge() const {return D2D1::ColorF(light?0xD9DADC:0x333639);}
+    D2D1_COLOR_F surface() const {return D2D1::ColorF(light?0xF5F5F5:0x0A0A0A);}
+    void theme() {BOOL dark=!light;DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));COLORREF border=light?RGB(218,218,218):RGB(45,47,50);DwmSetWindowAttribute(hwnd,DWMWA_BORDER_COLOR,&border,sizeof(border));redraw();}
     bool needsRelogin = false;
     bool hoverPrimary = false, hoverSecondary = false, hoverInput = false;
     ComPtr<ID2D1Factory> factory;
@@ -122,32 +129,41 @@ struct Installer {
             D2D1::RectF(x,y,x+width,y+height),brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);
     }
     void background() {
-        target->Clear(D2D1::ColorF(0x0A0A0A));
+        target->Clear(surface());
     }
     void header() {
-        label(L"Screenshot",64,17,220,32,smallText.Get(),D2D1::ColorF(0xF4F4F4));
+        label(L"Screenshot",64,17,220,32,smallText.Get(),ink());
+        if(step==Welcome) {
+            auto toggle=D2D1::RectF(477,16,519,38);
+            rounded(toggle,11,surface());outline(toggle,11,edge());
+            brush->SetColor(D2D1::ColorF(light?0x62666B:0x888B90));
+            target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(light?508.0f:488.0f,27),7,7),brush.Get());
+            regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+            label(english?L"EN":L"RU",28,342,50,28,regular.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_CENTER);
+            regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        }
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
-        brush->SetColor(D2D1::ColorF(0x8B8E94));
+        brush->SetColor(mutedInk());
         target->DrawLine(D2D1::Point2F(553,27),D2D1::Point2F(564,27),brush.Get(),1.2f);
         target->DrawLine(D2D1::Point2F(598,20),D2D1::Point2F(608,30),brush.Get(),1.25f);
         target->DrawLine(D2D1::Point2F(608,20),D2D1::Point2F(598,30),brush.Get(),1.25f);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
-        rounded(rect,13,D2D1::ColorF(active?0x141414:0x0A0A0A));
-        outline(rect,13,D2D1::ColorF(0x333639));
+        rounded(rect,13,D2D1::ColorF(light?(active?0xFFFFFF:0xF5F5F5):(active?0x141414:0x0A0A0A)));
+        outline(rect,13,edge());
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,medium.Get(),
-            D2D1::ColorF(1,1,1),DWRITE_TEXT_ALIGNMENT_CENTER);
+            ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
-        rounded(rect,12,D2D1::ColorF(0x141414));
-        outline(rect,12,D2D1::ColorF(0x333639));
+        rounded(rect,12,D2D1::ColorF(light?0xFFFFFF:0x141414));
+        outline(rect,12,edge());
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
-            D2D1::ColorF(0xF4F4F4),DWRITE_TEXT_ALIGNMENT_CENTER);
+            ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
     void ring(float x,float y,bool warning=false,bool green=false) {
-        auto color=D2D1::ColorF(0xF4F4F4);
+        auto color=ink();
         brush->SetColor(color);
         target->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(x,y),40,40),brush.Get(),3.6f);
         if(warning) {
@@ -161,66 +177,66 @@ struct Installer {
         }
     }
     void content() {
-        const auto white=D2D1::ColorF(0xF4F4F4);
-        const auto muted=D2D1::ColorF(0x8B8E94);
+        const auto white=ink();
+        const auto muted=mutedInk();
         if(step==Welcome) {
             label(L"Screenshot",40,231,560,50,headline.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
-            button(primaryRect(step),L"Установить  →");
+            button(primaryRect(step),tr(L"Установить",L"Install"));
         }
         if(step==Installing) {
-            label(L"Установка Screenshot",43,112,550,54,headline.Get(),white);
-            rounded(D2D1::RectF(44,203,593,221),9,D2D1::ColorF(0x333639));
+            label(tr(L"Установка Screenshot",L"Installing Screenshot"),43,112,550,54,headline.Get(),white);
+            rounded(D2D1::RectF(44,203,593,221),9,edge());
             int p=progress.load();
             float f=std::clamp(p/100.0f,0.0f,1.0f);
-            if(f>0) rounded(D2D1::RectF(44,203,44+549*f,221),9,D2D1::ColorF(0xF4F4F4));
+            if(f>0) rounded(D2D1::RectF(44,203,44+549*f,221),9,ink());
             label(std::to_wstring(p)+L"%",527,237,70,31,regular.Get(),muted,
                 DWRITE_TEXT_ALIGNMENT_TRAILING);
             if(result.load()>=1) {
-                label(L"Не удалось установить приложение",44,262,552,36,
+                label(tr(L"Не удалось установить приложение",L"Installation failed"),44,262,552,36,
                     regular.Get(),D2D1::ColorF(1,.65f,.56f));
                 label(failureDetail,44,297,540,48,smallText.Get(),muted);
-                button(D2D1::RectF(430,345,602,390),L"Повторить");
+                button(D2D1::RectF(430,345,602,390),tr(L"Повторить",L"Retry"));
             }
         }
         if(step==Installed) {
             ring(320,143);
-            label(L"Установка завершена",0,218,W,44,headline.Get(),white,
+            label(tr(L"Установка завершена",L"Installation complete"),0,218,W,44,headline.Get(),white,
                 DWRITE_TEXT_ALIGNMENT_CENTER);
-            button(primaryRect(step),L"Продолжить  →");
+            button(primaryRect(step),tr(L"Продолжить",L"Continue"));
         }
         if(step==Hotkey) {
-            label(L"Горячая клавиша",40,93,560,53,headline.Get(),white);
-            label(L"Нажмите клавишу для создания скриншота.",40,146,563,34,
+            label(tr(L"Горячая клавиша",L"Keyboard shortcut"),40,93,560,53,headline.Get(),white);
+            label(tr(L"Нажмите клавишу для создания скриншота.",L"Press a key to capture screenshots."),40,146,563,34,
                 regular.Get(),muted);
-            rounded(inputRect(),11,D2D1::ColorF(0x0A0A0A));
-            outline(inputRect(),11,D2D1::ColorF(listening?0x8B8E94:0x333639));
-            label(listening?L"Нажмите клавишу…":config.title,57,184,520,65,
+            rounded(inputRect(),11,surface());
+            outline(inputRect(),11,listening?mutedInk():edge());
+            label(listening?tr(L"Нажмите клавишу…",L"Press a key…"):config.title,57,184,520,65,
                 medium.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
-            if(listening) label(L"Esc — отмена",40,262,300,30,smallText.Get(),muted);
-            button(primaryRect(step),L"Далее  →");
+            if(listening) label(tr(L"Esc — отмена",L"Esc — cancel"),40,262,300,30,smallText.Get(),muted);
+            button(primaryRect(step),tr(L"Далее",L"Next"));
         }
         if(step==Confirm) {
             ring(320,112,true);
-            label(L"Заменить системное действие?",25,172,590,50,headline.Get(),white,
+            label(tr(L"Заменить системное действие?",L"Replace the Windows action?"),25,172,590,50,headline.Get(),white,
                 DWRITE_TEXT_ALIGNMENT_CENTER);
-            label(L"Изменить действие Print Screen в Windows?",45,232,550,32,
+            label(tr(L"Изменить действие Print Screen в Windows?",L"Change the Print Screen action in Windows?"),45,232,550,32,
                 regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
-            label(L"Назначить эту клавишу Screenshot?",45,264,550,32,
+            label(tr(L"Назначить эту клавишу Screenshot?",L"Assign this key to Screenshot?"),45,264,550,32,
                 regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
-            secondaryButton(secondaryRect(),L"Отмена");
-            button(primaryRect(step),L"Да, заменить");
+            secondaryButton(secondaryRect(),tr(L"Отмена",L"Cancel"));
+            button(primaryRect(step),tr(L"Да, заменить",L"Yes, replace"));
         }
         if(step==Ready) {
             ring(320,120,false,true);
-            label(L"Готово!",40,199,560,52,headline.Get(),white,
+            label(tr(L"Готово!",L"Ready!"),40,199,560,52,headline.Get(),white,
                 DWRITE_TEXT_ALIGNMENT_CENTER);
             std::wstring note = needsRelogin
-                ? L"Для активации клавиши перезапустите сеанс Windows."
-                : L"Горячая клавиша: "+config.title;
+                ? tr(L"Для активации клавиши перезапустите сеанс Windows.",L"Sign out of Windows and back in to activate the key.")
+                : std::wstring(tr(L"Горячая клавиша: ",L"Shortcut: "))+config.title;
             label(note,30,246,580,32,regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
-            label(L"PNG → Pictures\\Screenshot + буфер обмена",30,278,580,28,
+            label(tr(L"PNG → Pictures\\Screenshot + буфер обмена",L"PNG to Pictures\\Screenshot + clipboard"),30,278,580,28,
                 smallText.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
-            button(primaryRect(step),L"Закрыть");
+            button(primaryRect(step),tr(L"Закрыть",L"Close"));
         }
     }
     void paint() {
@@ -315,20 +331,19 @@ struct Installer {
     }
     void activateHotkey() {
         if(!saveConfig()) {
-            MessageBoxW(hwnd,L"Не удалось сохранить клавишу.",L"Screenshot",MB_OK|MB_ICONERROR);
+            MessageBoxW(hwnd,tr(L"Не удалось сохранить клавишу.",L"Could not save the shortcut."),L"Screenshot",MB_OK|MB_ICONERROR);
             return;
         }
         if(config.vk==VK_SNAPSHOT && config.mod==0) {
             if(!disableSnippingBinding()) {
-                MessageBoxW(hwnd,L"Windows не разрешила изменить системную привязку Print Screen.\n"
-                    L"Отключите её вручную в Параметры → Специальные возможности → Клавиатура.",
+                MessageBoxW(hwnd,tr(L"Windows не разрешила изменить системную привязку Print Screen.\nОтключите её вручную в Параметры → Специальные возможности → Клавиатура.",L"Windows could not change the Print Screen binding.\nDisable it in Settings > Accessibility > Keyboard."),
                     L"Screenshot",MB_OK|MB_ICONWARNING);
                 return;
             }
         }
         needsRelogin=!verifyHotkey();
         if(!launchBackground()) {
-            MessageBoxW(hwnd,L"Не удалось запустить Screenshot. Повторите установку.",
+            MessageBoxW(hwnd,tr(L"Не удалось запустить Screenshot. Повторите установку.",L"Could not start Screenshot. Please reinstall."),
                 L"Screenshot",MB_OK|MB_ICONERROR);
             return;
         }
@@ -399,7 +414,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.5.0") &&
+            writeString(key,L"DisplayVersion",L"0.5.1") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -450,48 +465,48 @@ struct Installer {
     }
     bool installPayload() {
         const std::wstring dir=installDirectory();
-        if(dir.empty()){error(L"Не удалось определить папку пользователя",GetLastError());return false;}
+        if(dir.empty()){error(tr(L"Не удалось определить папку пользователя",L"Could not locate your user folder"),GetLastError());return false;}
         if(SHCreateDirectoryExW(nullptr,dir.c_str(),nullptr)!=ERROR_SUCCESS &&
             GetFileAttributesW(dir.c_str())==INVALID_FILE_ATTRIBUTES) {
-            error(L"Не удалось создать папку "+dir,GetLastError());return false;
+            error(std::wstring(tr(L"Не удалось создать папку ",L"Could not create folder "))+dir,GetLastError());return false;
         }
         progress=24;PostMessageW(hwnd,WM_APP+11,0,0);
         HRSRC resource=FindResourceW(instance,MAKEINTRESOURCEW(PAYLOAD_ID),RT_RCDATA);
-        if(!resource){error(L"В установщике отсутствует Screenshot.exe",ERROR_RESOURCE_NAME_NOT_FOUND);return false;}
+        if(!resource){error(tr(L"В установщике отсутствует Screenshot.exe",L"Screenshot.exe is missing from the installer"),ERROR_RESOURCE_NAME_NOT_FOUND);return false;}
         HGLOBAL data=LoadResource(instance,resource);
         const DWORD bytes=SizeofResource(instance,resource);
         const BYTE* ptr=static_cast<const BYTE*>(LockResource(data));
         if(!ptr||bytes<1024||ptr[0]!='M'||ptr[1]!='Z'){
-            error(L"Встроенный Screenshot.exe повреждён",ERROR_INVALID_DATA);return false;
+            error(tr(L"Встроенный Screenshot.exe повреждён",L"The embedded Screenshot.exe is invalid"),ERROR_INVALID_DATA);return false;
         }
         std::wstring temp=dir+L"\\Screenshot.new";
         HANDLE f=CreateFileW(temp.c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,
             FILE_ATTRIBUTE_NORMAL,nullptr);
-        if(f==INVALID_HANDLE_VALUE) {error(L"Не удалось записать Screenshot.exe",GetLastError());return false;}
+        if(f==INVALID_HANDLE_VALUE) {error(tr(L"Не удалось записать Screenshot.exe",L"Could not write Screenshot.exe"),GetLastError());return false;}
         DWORD wrote=0;
         bool success=WriteFile(f,ptr,bytes,&wrote,nullptr) && wrote==bytes && FlushFileBuffers(f);
         DWORD writeError=GetLastError();
         CloseHandle(f);
-        if(!success){DeleteFileW(temp.c_str());error(L"Ошибка записи файлов",writeError);return false;}
+        if(!success){DeleteFileW(temp.c_str());error(tr(L"Ошибка записи файлов",L"Could not write installation files"),writeError);return false;}
         progress=59;PostMessageW(hwnd,WM_APP+11,0,0);
         const std::wstring exe=dir+L"\\Screenshot.exe";
         if(!stopOldScreenshot(exe)){
-            DeleteFileW(temp.c_str());error(L"Не удалось закрыть прежнюю версию Screenshot",ERROR_SHARING_VIOLATION);return false;
+            DeleteFileW(temp.c_str());error(tr(L"Не удалось закрыть прежнюю версию Screenshot",L"Could not close the previous Screenshot version"),ERROR_SHARING_VIOLATION);return false;
         }
         // Same-directory atomic replace: never leave a half-written Screenshot.exe.
         if(!MoveFileExW(temp.c_str(),exe.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)){
             DWORD code=GetLastError();DeleteFileW(temp.c_str());
-            error(L"Не удалось заменить Screenshot.exe. Проверьте антивирус и права доступа.",code);
+            error(tr(L"Не удалось заменить Screenshot.exe. Проверьте антивирус и права доступа.",L"Could not replace Screenshot.exe. Check antivirus and permissions."),code);
             return false;
         }
         progress=83;PostMessageW(hwnd,WM_APP+11,0,0);
         wchar_t self[MAX_PATH]{};
         if(!GetModuleFileNameW(nullptr,self,MAX_PATH) ||
             !CopyFileW(self,(dir+L"\\Uninstall.exe").c_str(),FALSE)){
-            error(L"Не удалось подготовить удаление приложения",GetLastError());return false;
+            error(tr(L"Не удалось подготовить удаление приложения",L"Could not prepare the uninstaller"),GetLastError());return false;
         }
         if(!registerInstall(dir)){
-            error(L"Не удалось зарегистрировать приложение в Windows",GetLastError());return false;
+            error(tr(L"Не удалось зарегистрировать приложение в Windows",L"Could not register the app in Windows"),GetLastError());return false;
         }
         // Replacing an EXE at the same path must also invalidate Explorer's cached icon.
         SHChangeNotify(SHCNE_UPDATEITEM,SHCNF_PATHW,exe.c_str(),nullptr);
@@ -532,6 +547,8 @@ struct Installer {
         listening=false;redraw();
     }
     void nextClick(POINT p) {
+        if(step==Welcome&&p.x>=469&&p.x<=525&&p.y>=10&&p.y<=44){light=!light;theme();return;}
+        if(step==Welcome&&p.x>=20&&p.x<=86&&p.y>=334&&p.y<=378){english=!english;redraw();return;}
         if(p.y<47 && p.x>574) { SendMessageW(hwnd,WM_CLOSE,0,0);return; }
         if(p.y<47 && p.x>530) { ShowWindow(hwnd,SW_MINIMIZE);return; }
         if(step==Hotkey&&inside(p,inputRect())) {listening=true;redraw();return;}
@@ -550,8 +567,7 @@ struct Installer {
             case Hotkey:
                 if(config.vk==VK_SNAPSHOT && config.mod==0) {step=Confirm;redraw();}
                 else if(verifyHotkey()) activateHotkey();
-                else MessageBoxW(hwnd,L"Эта клавиша занята другим приложением.\n"
-                     L"Выберите другую клавишу.",L"Screenshot",MB_OK|MB_ICONWARNING);
+                else MessageBoxW(hwnd,tr(L"Эта клавиша занята другим приложением.\nВыберите другую клавишу.",L"This shortcut is used by another app.\nChoose another key."),L"Screenshot",MB_OK|MB_ICONWARNING);
                 break;
             case Confirm:activateHotkey();break;
             case Ready:DestroyWindow(hwnd);break;
@@ -574,7 +590,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             POINT p{GET_X_LPARAM(l),GET_Y_LPARAM(l)};
             ScreenToClient(hwnd,&p);
             p.x=int(p.x/s->scale); p.y=int(p.y/s->scale);
-            if(p.y<47&&p.x>=56&&p.x<527)return HTCAPTION;
+            if(p.y<47&&p.x>=56&&p.x<(s->step==Welcome?465:527))return HTCAPTION;
             return hit;
         }
         case WM_NCCALCSIZE: if(w)return 0;break;
@@ -670,6 +686,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
         setup.step=static_cast<Step>(std::clamp(step,0,5));
         setup.scale=std::clamp(dpi/96.0f,1.0f,3.0f);
         setup.progress=62;
+        setup.light=wcsstr(commandLine,L"light")!=nullptr;
+        setup.english=wcsstr(commandLine,L"en")!=nullptr;
     }
     setup.icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),
         IMAGE_ICON,32,32,LR_DEFAULTCOLOR));
@@ -701,8 +719,9 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     // Keep a real DWM frame: Windows 11 owns corners and shadow, never a black bitmap mask.
     const DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;
     DwmSetWindowAttribute(hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
-    BOOL dark=TRUE;
+    BOOL dark=!setup.light;
     DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));
+    setup.theme();
     MARGINS margins{1,1,1,1};DwmExtendFrameIntoClientArea(hwnd,&margins);
     SetWindowPos(hwnd,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
     ShowWindow(hwnd,show==SW_HIDE?SW_SHOWNORMAL:show);
@@ -725,4 +744,5 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
 

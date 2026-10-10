@@ -82,20 +82,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Publish the exact candidate tested on the real Windows 11 desktop.
-          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.5.0-rc.2/Screenshot-Setup.exe" -OutFile dist/Screenshot-Setup.exe
-          $testedHash = "4a0e4caaca351728231e14d0988021868ebe50e9e5ba1959c70f086606ca75cf"
-          if ((Get-FileHash dist/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $testedHash) { throw "Tested installer mismatch" }
-          $tag = "v0.5.0"
+          $tag = "v0.5.1-rc.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.5.0" `
+              --title "Screenshot v0.5.1 candidate" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --latest
+              --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+
 
 
