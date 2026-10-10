@@ -77,11 +77,11 @@ struct Settings {
     ComPtr<IDWriteFactory> fonts;
     ComPtr<FontLoader> fontLoader;
     ComPtr<IDWriteFontCollection> collection;
-    ComPtr<IDWriteTextFormat> title,section,body,small;
+    ComPtr<IDWriteTextFormat> title,section,body,hintFont;
     std::wstring fontPath;
     HICON icon{};
     ~Settings() {
-        title.Reset();section.Reset();body.Reset();small.Reset();collection.Reset();
+        title.Reset();section.Reset();body.Reset();hintFont.Reset();collection.Reset();
         if(fontLoader&&fonts)fonts->UnregisterFontCollectionLoader(fontLoader.Get());
         fontLoader.Reset();fonts.Reset();
         if(!fontPath.empty())DeleteFileW(fontPath.c_str());
@@ -158,7 +158,7 @@ struct Settings {
             text(listening?L"Нажмите сочетание…":shortcutName(vk,mod),
                 D2D1::RectF(42,257,478,285),body.Get(),ink());
             text(status.empty()?(listening?L"Esc — отмена":L"Нажмите поле, затем нужную клавишу или сочетание."):status,
-                D2D1::RectF(28,307,492,360),small.Get(),muted());
+                D2D1::RectF(28,307,492,360),hintFont.Get(),muted());
             line(372);
             button(D2D1::RectF(28,390,210,426),L"Открыть папку");
             button(D2D1::RectF(340,390,492,426),L"Сохранить");
@@ -192,7 +192,7 @@ struct Settings {
                 DWRITE_FONT_STRETCH_NORMAL,size,L"ru-ru",&font));
         };
         return create(19,DWRITE_FONT_WEIGHT_MEDIUM,title)&&create(11.5f,DWRITE_FONT_WEIGHT_SEMI_BOLD,section)
-            &&create(13,DWRITE_FONT_WEIGHT_NORMAL,body)&&create(11,DWRITE_FONT_WEIGHT_NORMAL,small);
+            &&create(13,DWRITE_FONT_WEIGHT_NORMAL,body)&&create(11,DWRITE_FONT_WEIGHT_NORMAL,hintFont);
     }
     void save(bool confirmed=false) {
         if(preview){status=L"Предпросмотр настроек";return;}
@@ -311,7 +311,10 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
     DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;DwmSetWindowAttribute(s.hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
     MARGINS margins{1,1,1,1};DwmExtendFrameIntoClientArea(s.hwnd,&margins);s.theme();
     SetWindowPos(s.hwnd,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
-    ShowWindow(s.hwnd,SW_SHOWNORMAL);SetForegroundWindow(s.hwnd);UpdateWindow(s.hwnd);
+    ShowWindow(s.hwnd,SW_SHOWNORMAL);
+    // A process launched hidden at login must still show its first settings window.
+    if(!IsWindowVisible(s.hwnd))ShowWindow(s.hwnd,SW_SHOWNORMAL);
+    SetForegroundWindow(s.hwnd);UpdateWindow(s.hwnd);
 }
 void closeScreenshotSettings() {
     if(settings&&settings->hwnd)DestroyWindow(settings->hwnd);
