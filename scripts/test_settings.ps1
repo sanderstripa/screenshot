@@ -118,7 +118,7 @@ try {
     if((Get-ItemPropertyValue $config ThemeLight) -ne 1){throw 'Theme not saved'}
     Report 'one toggle switches #0A0A0A / #F5F5F5 and saves the theme'
     # Reassign to F23 while the original worker remains alive.
-    Click $hwnd 130 170;Key $hwnd 0x86;Click $hwnd 410 308
+    Click $hwnd 130 212;Key $hwnd 0x86;Click $hwnd 410 350
     if((Get-ItemPropertyValue $config HotkeyVK) -ne 0x86){throw 'New key not saved'}
     if([SettingsNative]::RegisterHotKey([IntPtr]::Zero,980,0,0x86)) {
         [SettingsNative]::UnregisterHotKey([IntPtr]::Zero,980)|Out-Null;throw 'New shortcut not registered by the running app'
@@ -130,17 +130,17 @@ try {
     # Reserve F22 in this test process and prove a conflicting choice leaves F23 intact.
     if(![SettingsNative]::RegisterHotKey([IntPtr]::Zero,982,0,0x85)){throw 'Test key F22 already in use'}
     try {
-        Click $hwnd 130 170;Key $hwnd 0x85;Click $hwnd 410 308
+        Click $hwnd 130 212;Key $hwnd 0x85;Click $hwnd 410 350
         if((Get-ItemPropertyValue $config HotkeyVK) -ne 0x86){throw 'Conflicting shortcut overwrote working configuration'}
         Shot $hwnd 'shortcut-conflict'|Out-Null
     } finally {[SettingsNative]::UnregisterHotKey([IntPtr]::Zero,982)|Out-Null}
     Report 'occupied shortcut is rejected without changing the working shortcut'
-    Click $hwnd 130 170;Key $hwnd 0x2c;Click $hwnd 410 308
+    Click $hwnd 130 212;Key $hwnd 0x2c;Click $hwnd 410 350
     Shot $hwnd 'print-screen-confirmation'|Out-Null
     if((Get-ItemPropertyValue $config HotkeyVK) -ne 0x86){throw 'Print Screen was saved before consent'}
     $now=Optional-Value 'HKCU:\Control Panel\Keyboard' 'PrintScreenKeyForSnippingEnabled'
     if($now -ne $snipping){throw 'Windows Print Screen changed before consent'}
-    Click $hwnd 100 308
+    Click $hwnd 100 350
     Report 'Print Screen requires explicit consent; cancellation preserves Windows action and current key'
     [SettingsNative]::PostMessage($hwnd,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
     Start-Sleep -Milliseconds 350
@@ -162,7 +162,7 @@ try {
         [SettingsNative]::ChangeDpi($hwnd,$dpi)
         Start-Sleep -Milliseconds 150
         $rect=[SettingsNative+Rect]::new();[SettingsNative]::GetWindowRect($hwnd,[ref]$rect)|Out-Null
-        if(($rect.Right-$rect.Left) -ne [int](520*$dpi/96) -or ($rect.Bottom-$rect.Top) -ne [int](340*$dpi/96)) {
+        if(($rect.Right-$rect.Left) -ne [int](520*$dpi/96) -or ($rect.Bottom-$rect.Top) -ne [int](382*$dpi/96)) {
             throw "Settings layout dimensions incorrect at DPI $dpi"
         }
         $pixel=Shot $hwnd "settings-light-dpi-$dpi" ($dpi/96.0)
@@ -182,5 +182,6 @@ finally {
         else {Set-ItemProperty $config $name $original[$name] -Type DWord}
     }
 }
+
 
 

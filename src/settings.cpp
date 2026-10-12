@@ -19,7 +19,7 @@ using Microsoft::WRL::RuntimeClass;
 using Microsoft::WRL::RuntimeClassFlags;
 using Microsoft::WRL::ClassicCom;
 namespace {
-constexpr int WIDTH=520, HEIGHT=340;
+constexpr int WIDTH=520, HEIGHT=382;
 constexpr wchar_t CONFIG[]=L"Software\\SanderStripa\\Screenshot";
 bool readDword(const wchar_t* name,DWORD& value) {
     DWORD size=sizeof(value);
@@ -113,7 +113,7 @@ struct Settings {
         }
         target->SetDpi(96*scale,96*scale);target->BeginDraw();
         target->Clear(color(light?0xF5F5F5:0x0A0A0A));
-        text(L"НАСТРОЙКИ",D2D1::RectF(28,27,420,58),title.Get(),ink(),1.8f);
+        text(L"SCREENSHOT.",D2D1::RectF(28,27,400,58),title.Get(),ink(),1.8f);
         brush->SetColor(color(muted()));
         target->DrawLine(D2D1::Point2F(481,31),D2D1::Point2F(489,39),brush.Get(),1);
         target->DrawLine(D2D1::Point2F(489,31),D2D1::Point2F(481,39),brush.Get(),1);
@@ -122,26 +122,27 @@ struct Settings {
         brush->SetColor(color(light?0x62666B:0x888B90));
         target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(light?444.0f:424.0f,35),7,7),brush.Get());
         line(80);
+        text(L"НАСТРОЙКИ",D2D1::RectF(28,98,400,128),title.Get(),ink(),1.8f);
         if(confirmation) {
-            text(L"PRINT SCREEN",D2D1::RectF(28,104,492,133),section.Get(),ink(),1);
-            text(L"Заменить системное действие клавиши?",D2D1::RectF(28,144,492,179),body.Get(),ink());
+            text(L"PRINT SCREEN",D2D1::RectF(28,146,492,175),section.Get(),ink(),1);
+            text(L"Заменить системное действие клавиши?",D2D1::RectF(28,186,492,221),body.Get(),ink());
             text(L"Print Screen будет открывать Screenshot вместо «Ножниц». Windows может потребовать выхода из сеанса.",
-                D2D1::RectF(28,190,492,260),body.Get(),muted());
-            line(272);
-            button(D2D1::RectF(28,290,182,326),L"Отмена");
-            button(D2D1::RectF(316,290,492,326),L"Да, заменить");
+                D2D1::RectF(28,232,492,302),body.Get(),muted());
+            line(314);
+            button(D2D1::RectF(28,332,182,368),L"Отмена");
+            button(D2D1::RectF(316,332,492,368),L"Да, заменить");
         } else {
 
-            text(L"ГОРЯЧАЯ КЛАВИША",D2D1::RectF(28,115,492,140),section.Get(),ink(),1);
-            round(D2D1::RectF(28,148,492,192),14,light?0xF9F9F9:0x0A0A0A);
-            round(D2D1::RectF(28,148,492,192),14,listening?muted():border(),false);
+            text(L"ГОРЯЧАЯ КЛАВИША",D2D1::RectF(28,157,492,182),section.Get(),ink(),1);
+            round(D2D1::RectF(28,190,492,234),14,light?0xF9F9F9:0x0A0A0A);
+            round(D2D1::RectF(28,190,492,234),14,listening?muted():border(),false);
             text(listening?L"Нажмите сочетание…":shortcutName(vk,mod),
-                D2D1::RectF(42,148,478,192),body.Get(),ink(),0,true);
+                D2D1::RectF(42,190,478,234),body.Get(),ink(),0,true);
             text(status.empty()?(listening?L"Esc — отмена":L"Нажмите поле, затем нужную клавишу или сочетание."):status,
-                D2D1::RectF(28,207,492,260),hintFont.Get(),muted());
-            line(272);
-            button(D2D1::RectF(28,290,210,326),L"Открыть папку");
-            button(D2D1::RectF(340,290,492,326),L"Сохранить");
+                D2D1::RectF(28,249,492,302),hintFont.Get(),muted());
+            line(314);
+            button(D2D1::RectF(28,332,210,368),L"Открыть папку");
+            button(D2D1::RectF(340,332,492,368),L"Сохранить");
         }
         HRESULT result=target->EndDraw();
         if(result==D2DERR_RECREATE_TARGET){brush.Reset();target.Reset();}
@@ -218,8 +219,8 @@ struct Settings {
     void click(float x,float y) {
         if(y<70&&x>464){DestroyWindow(hwnd);return;}
         if(confirmation) {
-            if(y>=290&&x<210){confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);}
-            else if(y>=290&&x>=316)save(true);
+            if(y>=332&&x<210){confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);}
+            else if(y>=332&&x>=316)save(true);
             return;
         }
         if(x>=405&&x<=460&&y>=18&&y<=52) {
@@ -227,9 +228,9 @@ struct Settings {
             if(!preview&&!writeDword(L"ThemeLight",light?1:0)){light=!light;status=L"Не удалось сохранить тему.";}
             theme();return;
         }
-        if(x>=28&&x<=492&&y>=148&&y<=192){listening=true;status.clear();InvalidateRect(hwnd,nullptr,FALSE);return;}
-        if(y>=290&&x>=340){save();return;}
-        if(y>=290&&x>=28&&x<=210) {
+        if(x>=28&&x<=492&&y>=190&&y<=234){listening=true;status.clear();InvalidateRect(hwnd,nullptr,FALSE);return;}
+        if(y>=332&&x>=340){save();return;}
+        if(y>=332&&x>=28&&x<=210) {
             wchar_t profile[32768]{};
             if(GetEnvironmentVariableW(L"USERPROFILE",profile,32768)) {
                 std::wstring folder=std::wstring(profile)+L"\\Pictures\\Screenshot";
@@ -303,5 +304,6 @@ void closeScreenshotSettings() {
 bool screenshotSettingsFocused() {
     return settings&&settings->hwnd&&GetForegroundWindow()==settings->hwnd;
 }
+
 
 
