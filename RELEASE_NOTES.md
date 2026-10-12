@@ -1,12 +1,9 @@
-# Screenshot v0.5.1
+# Screenshot v0.5.2
 
-- Removed arrows from Install, Continue and Next buttons.
-- Added an unlabeled theme toggle at the top right of the welcome screen.
-- Added one language control at the bottom left: RU switches to EN and EN switches back to RU.
-- All installer screens, buttons, instructions and application error dialogs switch between Russian and English.
-- The selected theme and language remain active throughout installation and shortcut configuration.
-- Start menu settings, live hotkey reassignment, the approved icon, hidden startup and PNG saving remain available.
+- Added the letter-spaced SCREENSHOT. brand header above Settings, with a trailing period.
+- Settings now appear below the title-row divider, in both light and dark themes.
+- Kept the theme switch and close control in the title row; adjusted window height and hit areas to fit the new heading.
 
-Tested on Windows 11 build 26100: actual clicks in both directions, independent theme/language switching, an actual update using the light English wizard, PNG disk/clipboard output, and all six screens in both themes and languages at 100/125/150/200/250% (120 combinations). Native screens were captured and visually inspected. Windows CI also passed installation, live upgrade, autostart, Start menu and uninstall checks.
+Verified on Windows 11 build 26100: upgrade from v0.5.1, both themes at 100/125/150/200/250%, Start menu launch, live shortcut reassignment, occupied shortcut rejection, Print Screen consent cancellation and persisted preferences. Actual native screenshots visually inspected.
 
-SHA-256 of the exact tested installer: `f4d88b202390b925b153adadaa08b04b1c4e4081790ac49a982ad5c9d823dfae`.
+Installer SHA-256: `20b6c486a7992e5ca775fff6e81f22cd5a214120549898af7edcddae40cd98a8`.

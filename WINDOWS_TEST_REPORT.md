@@ -1,5 +1,11 @@
 # Windows 11 verification — 2026-10-11
 
+## v0.5.2 — brand heading
+
+Tested candidate v0.5.2-rc.1 on Windows 11 build 26100. Exact final installer SHA-256: `20b6c486a7992e5ca775fff6e81f22cd5a214120549898af7edcddae40cd98a8`.
+
+PASS update over v0.5.1; native light/dark screenshots show SCREENSHOT. above Settings. PASS existing settings regression checks, including Start menu launch, live shortcut changes, conflict rejection, consent cancellation, persistence and both themes at five scales. Physical heights use truncation for fractional DPI pixels, matching the native window size. Installer behavior is unchanged; Windows CI repeats installation/update/startup/shortcut/uninstall checks.
+
 ## v0.5.1 — installer language and theme
 
 Downloaded v0.5.1-rc.1 tested on Windows 11 build 26100. SHA-256: `f4d88b202390b925b153adadaa08b04b1c4e4081790ac49a982ad5c9d823dfae`. The final release publishes these same bytes.

@@ -162,7 +162,7 @@ try {
         [SettingsNative]::ChangeDpi($hwnd,$dpi)
         Start-Sleep -Milliseconds 150
         $rect=[SettingsNative+Rect]::new();[SettingsNative]::GetWindowRect($hwnd,[ref]$rect)|Out-Null
-        if(($rect.Right-$rect.Left) -ne [int](520*$dpi/96) -or ($rect.Bottom-$rect.Top) -ne [int](382*$dpi/96)) {
+        if(($rect.Right-$rect.Left) -ne [int](520*$dpi/96) -or ($rect.Bottom-$rect.Top) -ne [int][Math]::Truncate(382*$dpi/96)) {
             throw "Settings layout dimensions incorrect at DPI $dpi"
         }
         $pixel=Shot $hwnd "settings-light-dpi-$dpi" ($dpi/96.0)
@@ -182,6 +182,3 @@ finally {
         else {Set-ItemProperty $config $name $original[$name] -Type DWord}
     }
 }
-
-
-

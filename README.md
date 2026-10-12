@@ -30,7 +30,7 @@ Screenshot captures a visible window or any screen region, adds rounded corners 
 
 ## Install
 
-Download [**Screenshot-Setup.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-Setup.exe), run it and click **Install**. The current release is [**v0.5.1**](https://github.com/sanderstripa/screenshot/releases/tag/v0.5.1), with the supplied high-resolution Screenshot icon throughout the app and installer.
+Download [**Screenshot-Setup.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-Setup.exe), run it and click **Install**. The current release is [**v0.5.2**](https://github.com/sanderstripa/screenshot/releases/tag/v0.5.2), with the supplied high-resolution Screenshot icon throughout the app and installer.
 
 Installation runs under your Windows account without administrator privileges. It installs to `%LOCALAPPDATA%\Programs\Screenshot` and registers automatic startup at login. On the first installer screen, use the top-right toggle for the theme and click RU/EN at the bottom left to switch the language for the entire wizard. After installation, choose a hotkey. Print Screen is the default; Screenshot asks before changing its built-in Windows action. Windows may require signing out for that change to apply.
 
