@@ -1,4 +1,4 @@
-param([string]$Setup,[string]$Output="test-results/installer-switches-0.5.1")
+﻿param([string]$Setup,[string]$Output="test-results/installer-switches-0.5.1")
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
@@ -16,6 +16,8 @@ public static class SettingsNative {
    }
    return IntPtr.Zero;
  }
+ [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
+ [DllImport("user32.dll",EntryPoint="GetWindowLongW")] public static extern int GetWindowLong(IntPtr hwnd,int index);
  public static IntPtr FindWindow(string cls,string title) { return FindWindowNative(String.IsNullOrEmpty(cls)?null:cls,String.IsNullOrEmpty(title)?null:title); }
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd,out Rect rect);
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
@@ -65,37 +67,65 @@ try {
     }
     if($hwnd -eq [IntPtr]::Zero){throw 'Installer window missing'}
     [SettingsNative]::ShowWindow($hwnd,9)|Out-Null;Start-Sleep -Milliseconds 400
-    $ru=Shot $hwnd 'dark-ru'
-    Click $hwnd 53 356
-    $en=Shot $hwnd 'dark-en'
+    $welcome=Shot $hwnd 'welcome-dark-ru'
+    Click $hwnd 80 356
+    $ru=Shot $hwnd 'preferences-dark-ru'
+    Click $hwnd 300 278
+    $en=Shot $hwnd 'preferences-dark-en'
     if($ru.Hash -eq $en.Hash){throw 'Language switch did not change the UI'}
-    Click $hwnd 53 356
-    $ruAgain=Shot $hwnd 'dark-ru-again'
-    if($ruAgain.Hash -ne $ru.Hash){throw 'EN to RU did not restore the original UI'}
-    Click $hwnd 498 27
-    $light=Shot $hwnd 'light-ru'
+    Click $hwnd 100 278
+    $ruAgain=Shot $hwnd 'preferences-dark-ru-again'
+    # Focus feedback is expected to differ from the initial unselected state.
+    Click $hwnd 300 186
+    $light=Shot $hwnd 'preferences-light-ru'
     if($light.Pixel.R -ne 245){throw 'Theme switch failed'}
-    Click $hwnd 53 356
-    $lightEn=Shot $hwnd 'light-en'
-    if($lightEn.Hash -eq $light.Hash){throw 'Language switch failed in light theme'}
-    Click $hwnd 498 27
-    $darkEn=Shot $hwnd 'dark-en-again'
-    if($darkEn.Hash -ne $en.Hash){throw 'Theme switch did not preserve English'}
-    Click $hwnd 498 27
+    Click $hwnd 300 278
+    $lightEn=Shot $hwnd 'preferences-light-en'
+    Click $hwnd 500 186
+    $darkEn=Shot $hwnd 'preferences-dark-en-again'
+    if($darkEn.Pixel.R -ne 10){throw 'Dark selection failed'}
+    Click $hwnd 100 350
+    Shot $hwnd 'welcome-dark-en'|Out-Null
+    Click $hwnd 80 356
+    Click $hwnd 100 186
+    Shot $hwnd 'preferences-system-en'|Out-Null
+    Click $hwnd 300 186
+    Click $hwnd 100 350
     Click $hwnd 320 341
-    for($i=0;$i -lt 100;$i++) {
-        Start-Sleep -Milliseconds 100
-        $installed=Shot $hwnd 'installed-light-en'
-        # Successful completion has the centered Continue button at y=340.
-        # Wait for installation to finish before advancing to the shortcut screen.
-        if($i -ge 30){break}
-    }
+    Start-Sleep -Seconds 4
+    $installed=Shot $hwnd 'installed-light-en'
     if($installed.Pixel.R -ne 245){throw 'Installation did not preserve light theme'}
     Click $hwnd 320 340
     $hotkey=Shot $hwnd 'hotkey-light-en'
-    if($hotkey.Hash -eq $installed.Hash -or $hotkey.Pixel.R -ne 245){throw 'Continue did not preserve the selected theme or advance'}
-    'PASS actual update: light English installer -> installation complete -> shortcut screen'
-    'PASS actual welcome screen clicks: RU -> EN -> RU, dark -> light -> dark, independent theme and language'
+    if($hotkey.Hash -eq $installed.Hash -or $hotkey.Pixel.R -ne 245){throw 'Continue failed'}
+    Click $hwnd 120 216
+    [SettingsNative]::PostMessage($hwnd,0x100,[IntPtr]0x2c,[IntPtr]::Zero)|Out-Null
+    Start-Sleep -Milliseconds 200
+    Click $hwnd 510 350
+    Shot $hwnd 'confirmation-light-en'|Out-Null
+    Click $hwnd 100 346
+    Shot $hwnd 'cancelled-confirmation-light-en'|Out-Null
+    if(![SettingsNative]::RegisterHotKey([IntPtr]::Zero,992,0,0x85)){throw 'F22 fixture occupied'}
+    try {
+        Click $hwnd 120 216
+        [SettingsNative]::PostMessage($hwnd,0x100,[IntPtr]0x85,[IntPtr]::Zero)|Out-Null
+        Start-Sleep -Milliseconds 150
+        Click $hwnd 510 350
+        Shot $hwnd 'custom-shortcut-conflict-notice'|Out-Null
+        [SettingsNative]::PostMessage($hwnd,0x100,[IntPtr]13,[IntPtr]::Zero)|Out-Null
+        Start-Sleep -Milliseconds 200
+        Shot $hwnd 'notice-dismissed'|Out-Null
+    } finally {[SettingsNative]::UnregisterHotKey([IntPtr]::Zero,992)|Out-Null}
+    [SettingsNative]::PostMessage($hwnd,0x100,[IntPtr]9,[IntPtr]::Zero)|Out-Null
+    Start-Sleep -Milliseconds 200
+    Shot $hwnd 'keyboard-focus'|Out-Null
+    if(([SettingsNative]::GetWindowLong($hwnd,-16) -band 0x10000) -ne 0){throw 'Unexpected maximize button'}
+    Click $hwnd 550 26
+    if(![SettingsNative]::IsIconic($hwnd)){throw 'Installer minimize failed'}
+    [SettingsNative]::ShowWindow($hwnd,9)|Out-Null
+    [SettingsNative]::PostMessage($hwnd,0x104,[IntPtr]0x73,[IntPtr](1 -shl 29))|Out-Null
+    if(!$process.WaitForExit(3000)){throw 'Alt F4 did not close installer'}
+    'PASS actual update: preferences RU EN, System Light Dark, light English wizard and confirmation cancellation'
 } finally {
     if($hwnd -ne [IntPtr]::Zero){[SettingsNative]::PostMessage($hwnd,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null}
     if(!$process.WaitForExit(5000)){Stop-Process -Id $process.Id}

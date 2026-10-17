@@ -1,4 +1,23 @@
-# Windows 11 verification — 2026-10-11
+# Windows 11 verification — 2026-10-18
+
+## v0.6.0 — CONNECT UI System integration
+
+Final candidate v0.6.0-rc.3 tested on Windows 11 build 26100; final release reuses its exact installer bytes. SHA-256 `4b50e4452066a0ca752c8e971b9a8dcdda7ec1d5ff2e6d45663b90bcfb0800c9`.
+
+- PASS actual update over installed previous version; setup preferences survive into installation complete, shortcut and confirmation stages.
+- PASS original #F5F5F5 / #0A0A0A backgrounds and #111111 / #F4F4F4 primary button fills, sampled from actual rendered windows.
+- PASS unchanged logical dimensions: app 520×382 and setup 640×400.
+- PASS Montserrat asset unchanged byte for byte; original Screenshot branding retained.
+- PASS live F24 → F23 assignment, old key released, new key registered by the same process; occupied F22 does not replace the working key.
+- PASS explicit Print Screen consent cancellation preserves the Windows binding and app shortcut.
+- PASS app RU/EN and System/Light/Dark preferences, persistence after restart, and System palette matched to Windows. WM_SETTINGCHANGE refresh tested against current Windows setting without changing the user's OS theme.
+- PASS app and setup minimize; no maximize style; Alt+F4 closes the visible UI and leaves the background capture worker running for app settings.
+- PASS titlebar drag and minimize client hit tests; keyboard Tab/Space/Enter navigation and visible 2px focus states.
+- PASS native installer conflict notice, keyboard dismissal and confirmed complete occlusion of underlying controls.
+- PASS both settings themes at 100/125/150/200/250%; setup six stages × two themes × RU/EN × five scales (120 captures), with correct dimensions and background colors. Representative real screenshots inspected for text, controls and dialogs.
+- PASS PNG disk/clipboard output after update. Windows CI independently verifies build, payload, repeated installation, update over a running executable, autostart, Start menu link and uninstall.
+
+Tests restore original app shortcut, language and theme values. Screenshots remain local. The approved gear #8 visual is missing, so its exact artwork is not tested or replaced; text settings actions remain available.
 
 ## v0.5.2 — brand heading
 
