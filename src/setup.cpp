@@ -18,6 +18,10 @@
 #include <cwchar>
 #include <vector>
 #include <wincodec.h>
+#include <exdisp.h>
+#include <shldisp.h>
+#include <shlguid.h>
+#include <servprov.h>
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"dwrite.lib")
 #pragma comment(lib,"shell32.lib")
@@ -366,6 +370,35 @@ struct Installer {
             GetTokenInformation(processToken,TokenElevation,&elevation,sizeof(elevation),&bytes)&&elevation.TokenIsElevated;
         if(processToken)CloseHandle(processToken);
         if(elevated) {
+            // Ask the desktop Shell to execute as its ordinary user. ShellWindows
+            // resolves the existing Explorer instead of creating an elevated COM server.
+            ComPtr<IShellWindows> windows;
+            ComPtr<IDispatch> desktopDispatch,background,application;
+            ComPtr<IServiceProvider> provider;
+            ComPtr<IShellBrowser> browser;
+            ComPtr<IShellView> view;
+            ComPtr<IShellFolderViewDual> folder;
+            ComPtr<IShellDispatch2> shell;
+            VARIANT location{},root{};location.vt=VT_I4;location.lVal=CSIDL_DESKTOP;
+            long desktopWindow=0;
+            if(SUCCEEDED(CoCreateInstance(CLSID_ShellWindows,nullptr,CLSCTX_LOCAL_SERVER,IID_PPV_ARGS(&windows)))&&
+                SUCCEEDED(windows->FindWindowSW(&location,&root,SWC_DESKTOP,&desktopWindow,SWFO_NEEDDISPATCH,&desktopDispatch))&&desktopDispatch&&
+                SUCCEEDED(desktopDispatch.As(&provider))&&
+                SUCCEEDED(provider->QueryService(SID_STopLevelBrowser,IID_PPV_ARGS(&browser)))&&
+                SUCCEEDED(browser->QueryActiveShellView(&view))&&
+                SUCCEEDED(view->GetItemObject(SVGIO_BACKGROUND,IID_PPV_ARGS(&background)))&&
+                SUCCEEDED(background.As(&folder))&&SUCCEEDED(folder->get_Application(&application))&&
+                SUCCEEDED(application.As(&shell))) {
+                BSTR executable=SysAllocString(file.c_str());
+                VARIANT arguments{},directory{},operation{},show{};
+                arguments.vt=VT_BSTR;arguments.bstrVal=SysAllocString(settings?L"--settings":L"--background");
+                operation.vt=VT_BSTR;operation.bstrVal=SysAllocString(L"open");
+                show.vt=VT_I4;show.lVal=SW_SHOWNORMAL;
+                HRESULT launched=(executable&&arguments.bstrVal&&operation.bstrVal)?
+                    shell->ShellExecute(executable,arguments,directory,operation,show):E_OUTOFMEMORY;
+                SysFreeString(executable);VariantClear(&arguments);VariantClear(&operation);
+                if(SUCCEEDED(launched))return true;
+            }
             DWORD desktopPID=0;GetWindowThreadProcessId(GetShellWindow(),&desktopPID);
             HANDLE desktop=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,desktopPID);
             HANDLE desktopToken=nullptr,primary=nullptr;
