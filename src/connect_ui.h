@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <d2d1.h>
+#include <initializer_list>
 namespace ConnectUI {
 constexpr float Radius=8, ControlHeight=36;
 // CONNECT VPN frontend/src/style.css. Palette adoption explicitly requested.
@@ -77,3 +78,5 @@ inline void feedback(ID2D1RenderTarget* target,ID2D1SolidColorBrush* brush,D2D1_
     // Immediate feedback also respects reduced-motion preferences.
 }
 }
+
+

@@ -68,7 +68,7 @@ struct Installer {
     std::atomic<int> result{-99};
     std::atomic<bool> working{false};
     bool listening = false;
-    bool light = false, english = false, preferences = false;
+    bool light = false, english = false, preferences = false, keyboardFocus = false;
     int hovered=-1,pressed=-1,focused=-1; DWORD themeMode=2;std::wstring notice;
     void showNotice(const wchar_t* message) {notice=message;focused=20;redraw();}
     const wchar_t* tr(const wchar_t* ru,const wchar_t* en) const {return english?en:ru;}
@@ -186,7 +186,7 @@ struct Installer {
             label(value,left+17,rect.top,metrics.width+1,rect.bottom-rect.top,smallText.Get(),foreground);
         } else label(value,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,smallText.Get(),foreground,DWRITE_TEXT_ALIGNMENT_CENTER);
         smallText->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-        if(focused==id)ConnectUI::feedback(target.Get(),brush.Get(),rect,mutedInk(),false,false,true);
+        if(keyboardFocus&&focused==id)ConnectUI::feedback(target.Get(),brush.Get(),rect,mutedInk(),false,false,true);
     }
     void ring(float x,float y,bool warning=false,bool green=false) {
         auto color=ink();
@@ -206,7 +206,7 @@ struct Installer {
         const auto white=ink();
         const auto muted=mutedInk();
         if(preferences) {
-            brush->SetColor(mutedInk());ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Back,28,84,17);
+            brush->SetColor(mutedInk());ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Back,28,90,17);
             label(tr(L"НАСТРОЙКИ",L"SETTINGS"),55,80,550,36,medium.Get(),white);
             brush->SetColor(edge());target->DrawLine(D2D1::Point2F(28,124),D2D1::Point2F(612,124),brush.Get());
             brush->SetColor(mutedInk());ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Palette,28,145,17);
@@ -652,7 +652,7 @@ struct Installer {
             for(int i=0;i<3;i++)if(inside(p,D2D1::RectF(28+196.0f*i,176,220+196.0f*i,208)))return 3+i;
             if(inside(p,D2D1::RectF(544,140,576,168)))return 6;
             if(inside(p,D2D1::RectF(580,140,612,168)))return 7;
-            return inside(p,D2D1::RectF(24,76,52,112))?2:-1;
+            return inside(p,D2D1::RectF(24,80,52,116))?2:-1;
         }
         if(step==Welcome&&inside(p,D2D1::RectF(28,323,64,359)))return 8;
         if(step==Hotkey&&inside(p,inputRect()))return 0;
@@ -661,7 +661,7 @@ struct Installer {
         return inside(p,primaryRect(step))?1:-1;
     }
     void tab(bool reverse) {
-        listening=false;
+        listening=false;keyboardFocus=true;
         std::vector<int> ids;
         if(!notice.empty())ids={20,10,11};
         else if(preferences)ids={3,4,5,6,7,2,10,11};
@@ -680,7 +680,7 @@ struct Installer {
         else if(preferences) {
             if(focused>=3&&focused<=5)p={120+196*(focused-3),192};
             else if(focused>=6&&focused<=7)p={560+36*(focused-6),154};
-            else p={38,94};
+            else p={38,98};
         } else if(focused==0)p={120,216};else if(focused==8)p={46,341};
         else {auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}
         nextClick(p);
@@ -763,7 +763,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
         case WM_MOUSELEAVE:s->hovered=-1;s->redraw();return 0;
         case WM_LBUTTONDOWN:s->pressed=s->hit(POINT{int(GET_X_LPARAM(l)/s->scale),int(GET_Y_LPARAM(l)/s->scale)});SetFocus(hwnd);s->redraw();return 0;
         case WM_LBUTTONUP:{
-            s->pressed=-1;
+            s->pressed=-1;s->keyboardFocus=false;
             POINT p{GET_X_LPARAM(l),GET_Y_LPARAM(l)};
             p.x=int(p.x/s->scale);p.y=int(p.y/s->scale);
             s->nextClick(p);return 0;
@@ -904,6 +904,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
 
 
 
