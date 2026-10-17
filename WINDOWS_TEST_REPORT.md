@@ -1,5 +1,15 @@
 # Windows 11 verification — 2026-10-18
 
+## v0.6.3 — VPN appearance and alignment
+
+Final candidate v0.6.3-rc.2 SHA-256: `6e049eafd945b6eb6efb1efa4430439a0b730ec1cb75510fd53bc0dfa4ededa4`. Final release reuses these exact bytes.
+
+The user explicitly requested the VPN tone palette, overriding earlier preservation instructions. Colors were taken from CONNECT frontend/src/style.css; appearance control metrics/selection from frontend/src/styles/connect-ui-v1.css. The same Lucide icon family used by CONNECT supplies Monitor/Sun/Moon/Palette/ArrowLeft; attribution is retained in assets/Lucide-LICENSE. Approved settings #8 remains unchanged.
+
+PASS actual rendered gear vertical center = 341, matching Install center = 341. PASS selected preference pixel #EEEEEE (light) / #1A1B1E (dark), without inverted text or bright primary fills. Native screenshots of both preference pages were visually reviewed against the supplied VPN screenshots.
+
+PASS app settings, RU/EN and System/Light/Dark behavior, live key reassignment, occupied-key rejection, Print Screen cancellation, persistence, custom window/keyboard controls and all five app DPI scales from 100–250%. PASS six installer stages × two themes × two languages at 100% (24 captures), plus actual wizard update/preferences/notice interaction. PASS PNG disk/clipboard output and Windows CI installation, update, startup, Start menu and uninstall. App remains 520×382 and setup 640×400 logical pixels; Montserrat is unchanged.
+
 ## v0.6.2 — approved SVG #8
 
 Final candidate v0.6.2-rc.2 SHA-256: `06c0583cddc98402152ce8abd0b2d90e30bd07cc29bf96010ddfa7fa2652491b`. Final release reuses these exact bytes.

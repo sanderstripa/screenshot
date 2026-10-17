@@ -93,16 +93,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.6.3-rc.2"
+          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.6.3-rc.2/Screenshot-Setup.exe" -OutFile dist/Screenshot-Setup.exe
+          $testedHash = "6e049eafd945b6eb6efb1efa4430439a0b730ec1cb75510fd53bc0dfa4ededa4"
+          if ((Get-FileHash dist/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $testedHash) { throw "Tested installer mismatch" }
+          $tag = "v0.6.3"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.6.3 candidate" `
+              --title "Screenshot v0.6.3 — CONNECT VPN appearance" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --prerelease
+              --latest
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
-
-

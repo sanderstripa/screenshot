@@ -24,7 +24,7 @@ Screenshot captures a visible window or any screen region, adds rounded corners 
 - **Ready at login.** A small native background app with automatic startup and no tray icon.
 - **A native Windows 11 installer.** Light/dark themes, a RU/EN language switch, real rounded corners, crisp Montserrat text and high-resolution artwork.
 - **Settings in Start.** Open Screenshot from the Start menu to change the shortcut without restarting the app.
-- **Theme and language settings.** System/Light/Dark and RU/EN live inside settings. Montserrat and the original Screenshot palette are preserved.
+- **Theme and language settings.** System/Light/Dark and RU/EN live inside settings. Montserrat and the CONNECT VPN palette are used.
 - **Your shortcut.** Replacing Windows' Print Screen action requires explicit confirmation.
 - **Safe updates.** The installer replaces a running previous version and keeps your shortcut settings.
 
@@ -32,7 +32,7 @@ CONNECT UI System v1.0 unifies controls and window shells while keeping the nati
 
 ## Install
 
-Download [**Screenshot-Setup.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-Setup.exe), run it and click **Install**. The current release is [**v0.6.2**](https://github.com/sanderstripa/screenshot/releases/tag/v0.6.2), with the supplied high-resolution Screenshot icon throughout the app and installer.
+Download [**Screenshot-Setup.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-Setup.exe), run it and click **Install**. The current release is [**v0.6.3**](https://github.com/sanderstripa/screenshot/releases/tag/v0.6.3), with the supplied high-resolution Screenshot icon throughout the app and installer.
 
 Installation runs under your Windows account without administrator privileges. It installs to `%LOCALAPPDATA%\Programs\Screenshot` and registers automatic startup at login. Open **Settings** on the welcome screen to choose System/Light/Dark and RU/EN for the entire wizard. After installation, choose a hotkey. Print Screen is the default; Screenshot asks before changing its built-in Windows action. Windows may require signing out for that change to apply.
 

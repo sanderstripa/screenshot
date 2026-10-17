@@ -1,10 +1,11 @@
-# Screenshot v0.6.2 — approved CONNECT settings icon #8
+# Screenshot v0.6.3 — CONNECT VPN appearance
 
-- Replaced settings text actions in the installer and app with the exact approved `CONNECT-settings-08.svg` from `sanderstripa/connect`, branch `connect-ui-system-v1-reference`.
-- No background tile or mouse-focus outline. Keyboard navigation retains its focus indicator.
-- The original SVG is retained byte for byte (Git blob `c7a6eedf689fdb759133b35e487c35e4505af236`). Its curves, arcs, circle, fill rule and viewBox are converted directly to native Direct2D geometry and checked by CI.
-- Existing startup permission fixes, Montserrat, palettes, dimensions, capture behavior and shortcuts are preserved.
+- Raised the approved installer settings gear to the exact vertical center of Install (341 logical pixels).
+- Matched the application and installer appearance sections to CONNECT VPN: compact RU/EN buttons at the right, a palette heading and Monitor/Sun/Moon icons on System/Light/Dark choices.
+- Replaced contrasting selected preference fills with CONNECT's quiet #EEEEEE / #1A1B1E surfaces and muted outlines.
+- Adopted the requested VPN tones from CONNECT frontend/src/style.css: #F7F7F5 / #0C0C0D backgrounds and matching text, muted, separator and action colors. This palette change was explicitly requested by the user.
+- Kept Montserrat, window dimensions, approved settings #8, capture behavior and startup fixes.
 
-Tested on Windows: actual icon clicks, both themes, settings persistence and shortcut reassignment, 100–250% scaling, installer update/settings flow, window controls and PNG disk/clipboard output.
+Verified on Windows: gear/Install center equality, selected-fill pixels, working theme and language, app at 100–250%, six installer stages in both themes and languages at 100%, actual update, hotkey conflict/Print Screen consent, window/keyboard controls and PNG disk/clipboard.
 
-Exact tested installer SHA-256: `06c0583cddc98402152ce8abd0b2d90e30bd07cc29bf96010ddfa7fa2652491b`.
+Exact tested installer SHA-256: `6e049eafd945b6eb6efb1efa4430439a0b730ec1cb75510fd53bc0dfa4ededa4`.

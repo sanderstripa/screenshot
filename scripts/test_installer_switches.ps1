@@ -68,36 +68,36 @@ try {
     if($hwnd -eq [IntPtr]::Zero){throw 'Installer window missing'}
     [SettingsNative]::ShowWindow($hwnd,4)|Out-Null;[SettingsNative]::SetWindowPos($hwnd,[IntPtr]1,0,0,0,0,0x13)|Out-Null;Start-Sleep -Milliseconds 400
     $welcome=Shot $hwnd 'welcome-dark-ru'
-    Click $hwnd 46 356
+    Click $hwnd 46 341
     $ru=Shot $hwnd 'preferences-dark-ru'
-    Click $hwnd 300 278
+    Click $hwnd 596 154
     $en=Shot $hwnd 'preferences-dark-en'
     if($ru.Hash -eq $en.Hash){throw 'Language switch did not change the UI'}
-    Click $hwnd 100 278
+    Click $hwnd 560 154
     $ruAgain=Shot $hwnd 'preferences-dark-ru-again'
     # Focus feedback is expected to differ from the initial unselected state.
     Click $hwnd 300 186
     $light=Shot $hwnd 'preferences-light-ru'
-    if($light.Pixel.R -ne 245){throw 'Theme switch failed'}
-    Click $hwnd 300 278
+    if($light.Pixel.R -ne 247){throw 'Theme switch failed'}
+    Click $hwnd 596 154
     $lightEn=Shot $hwnd 'preferences-light-en'
     Click $hwnd 500 186
     $darkEn=Shot $hwnd 'preferences-dark-en-again'
-    if($darkEn.Pixel.R -ne 10){throw 'Dark selection failed'}
-    Click $hwnd 100 350
+    if($darkEn.Pixel.R -ne 12){throw 'Dark selection failed'}
+    Click $hwnd 38 98
     Shot $hwnd 'welcome-dark-en'|Out-Null
-    Click $hwnd 46 356
+    Click $hwnd 46 341
     Click $hwnd 100 186
     Shot $hwnd 'preferences-system-en'|Out-Null
     Click $hwnd 300 186
-    Click $hwnd 100 350
+    Click $hwnd 38 98
     Click $hwnd 320 341
     Start-Sleep -Seconds 4
     $installed=Shot $hwnd 'installed-light-en'
-    if($installed.Pixel.R -ne 245){throw 'Installation did not preserve light theme'}
+    if($installed.Pixel.R -ne 247){throw 'Installation did not preserve light theme'}
     Click $hwnd 320 340
     $hotkey=Shot $hwnd 'hotkey-light-en'
-    if($hotkey.Hash -eq $installed.Hash -or $hotkey.Pixel.R -ne 245){throw 'Continue failed'}
+    if($hotkey.Hash -eq $installed.Hash -or $hotkey.Pixel.R -ne 247){throw 'Continue failed'}
     Click $hwnd 120 216
     [SettingsNative]::PostMessage($hwnd,0x100,[IntPtr]0x2c,[IntPtr]::Zero)|Out-Null
     Start-Sleep -Milliseconds 200

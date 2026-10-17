@@ -96,7 +96,7 @@ function Shot([IntPtr]$hwnd,[string]$name,[double]$scale=0) {
 function Theme([int]$mode,[double]$scale=0) {
     Click $hwnd 476 116 $scale
     Click $hwnd (102+156*$mode) 194 $scale
-    Click $hwnd 100 350 $scale
+    Click $hwnd 38 112 $scale
 }
 try {
     Stop-App
@@ -120,20 +120,20 @@ try {
     }
     $hwnd=Find-Settings
     $dark=Shot $hwnd 'settings-dark'
-    if($dark.R -ne 10 -or $dark.G -ne 10 -or $dark.B -ne 10){throw 'Dark reference color mismatch'}
+    if($dark.R -ne 12 -or $dark.G -ne 12 -or $dark.B -ne 13){throw 'Dark reference color mismatch'}
     Report 'Start menu settings open inside the existing background process'
     Theme 1
     $light=Shot $hwnd 'settings-light'
-    if($light.R -ne 245 -or $light.G -ne 245 -or $light.B -ne 245){throw 'Light reference color mismatch'}
+    if($light.R -ne 247 -or $light.G -ne 247 -or $light.B -ne 245){throw 'Light reference color mismatch'}
     if((Get-ItemPropertyValue $config ThemeLight) -ne 1){throw 'Theme not saved'}
     foreach($state in 'dark','light') {
         $bitmap=[Drawing.Bitmap]::new((Join-Path $Output "settings-$state.png"))
         try {
             $pixel=$bitmap.GetPixel([int](350*$bitmap.Width/520),[int](340*$bitmap.Width/520))
-            if($pixel.R -ne $(if($state -eq 'light'){17}else{244}) -or $pixel.G -ne $pixel.R -or $pixel.B -ne $pixel.R){throw 'Primary button palette mismatch'}
+            if($pixel.R -ne $(if($state -eq 'light'){23}else{230}) -or $pixel.G -ne $(if($state -eq 'light'){26}else{231}) -or $pixel.B -ne $(if($state -eq 'light'){29}else{233})){throw 'Primary button palette mismatch'}
         } finally {$bitmap.Dispose()}
     }
-    Report 'preferences switch #0A0A0A / #F5F5F5 and save the theme'
+    Report 'preferences switch #0C0C0D / #F7F7F5 and save the theme'
     # Reassign to F23 while the original worker remains alive.
     Click $hwnd 130 212;Key $hwnd 0x86;Click $hwnd 410 350
     if((Get-ItemPropertyValue $config HotkeyVK) -ne 0x86){throw 'New key not saved'}
@@ -165,7 +165,7 @@ try {
     Start-Process -FilePath $App -ArgumentList '--settings' -WindowStyle Hidden -Wait | Out-Null
     $hwnd=Find-Settings
     $reopened=Shot $hwnd 'settings-reopened'
-    if($reopened.R -ne 245){throw 'Theme not restored when reopening settings'}
+    if($reopened.R -ne 247){throw 'Theme not restored when reopening settings'}
     Report 'closing settings keeps the worker; Start menu reopens with saved theme and shortcut'
     Stop-App
     # A restart verifies persisted values, rather than only in-memory state.
@@ -173,7 +173,7 @@ try {
     Start-Sleep -Milliseconds 650
     Start-Process -FilePath $App -ArgumentList '--settings' -WindowStyle Hidden -Wait | Out-Null
     $hwnd=Find-Settings
-    if((Shot $hwnd 'settings-after-restart').R -ne 245){throw 'Theme lost after restart'}
+    if((Shot $hwnd 'settings-after-restart').R -ne 247){throw 'Theme lost after restart'}
     Report 'theme and shortcut survive a complete process restart'
     foreach($dpi in 96,120,144,192,240) {
         [SettingsNative]::ChangeDpi($hwnd,$dpi)
@@ -183,20 +183,20 @@ try {
             throw "Settings layout dimensions incorrect at DPI ${dpi}: $($rect.Right-$rect.Left) x $($rect.Bottom-$rect.Top)"
         }
         $pixel=Shot $hwnd "settings-light-dpi-$dpi" ($dpi/96.0)
-        if($pixel.R -ne 245){throw "Light rendering incorrect at DPI $dpi"}
+        if($pixel.R -ne 247){throw "Light rendering incorrect at DPI $dpi"}
         Theme 2 ($dpi/96.0)
         $pixel=Shot $hwnd "settings-dark-dpi-$dpi" ($dpi/96.0)
-        if($pixel.R -ne 10){throw "Dark rendering incorrect at DPI $dpi"}
+        if($pixel.R -ne 12){throw "Dark rendering incorrect at DPI $dpi"}
         Theme 1 ($dpi/96.0)
         Report "both themes render correctly and remain clickable at $([int]($dpi/96*100))% scaling"
     }
     [SettingsNative]::ChangeDpi($hwnd,96)
     Start-Sleep -Milliseconds 150
     Click $hwnd 476 116
-    Click $hwnd 240 282
+    Click $hwnd 476 162
     if((Get-ItemPropertyValue $config LanguageEN) -ne 1){throw 'English language switch did not save'}
     Shot $hwnd 'preferences-english'|Out-Null
-    Click $hwnd 100 350
+    Click $hwnd 38 112
     Shot $hwnd 'settings-english'|Out-Null
     Key $hwnd 9
     Key $hwnd 32
@@ -207,7 +207,7 @@ try {
     [SettingsNative]::PostMessage($hwnd,0x1a,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
     Start-Sleep -Milliseconds 200
     $system=Shot $hwnd 'settings-system-theme'
-    if($system.R -ne $(if($expected){245}else{10})){throw 'System theme does not follow Windows'}
+    if($system.R -ne $(if($expected){247}else{12})){throw 'System theme does not follow Windows'}
     if((Get-ItemPropertyValue $config ThemeMode) -ne 0){throw 'System mode was not saved'}
     $bounds=[SettingsNative+Rect]::new();[SettingsNative]::GetWindowRect($hwnd,[ref]$bounds)|Out-Null
     if([SettingsNative]::HitTest($hwnd,($bounds.Left+100),($bounds.Top+35)) -ne 2){throw 'Titlebar drag hit test failed'}

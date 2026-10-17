@@ -2,23 +2,26 @@
 
 Reference: https://github.com/sanderstripa/connect/blob/connect-ui-system-v1-reference/docs/CONNECT-UI-SYSTEM-v1.md
 
-The implementation extends existing PR #1. No replacement framework, screenshot encoding/capture, shortcut registration, startup, single-instance IPC, output directory or installation mechanism was introduced.
+The implementation extends existing PR #1. On 2026-10-18 the user explicitly requested alignment of Screenshot tones with CONNECT VPN, superseding the earlier palette-preservation constraint. Active colors come from CONNECT frontend/src/style.css; preference dimensions and selection behavior follow frontend/src/styles/connect-ui-v1.css. No replacement framework, screenshot encoding/capture, shortcut registration, startup, single-instance IPC, output directory or installation mechanism was introduced.
 
-## Preserved tokens
+## Active CONNECT VPN palette
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| Window | #F5F5F5 | #0A0A0A |
-| Text / primary fill | #111111 | #F4F4F4 |
-| Muted text | #75797F | #8B8E94 |
-| Border | #D9DADC | #333639 |
-| Secondary surface | #F9F9F9 | #141414 |
+| Window | #F7F7F5 | #0C0C0D |
+| Text | #171A1D | #EDEDEE |
+| Primary fill | #171A1D | #E6E7E9 |
+| Muted text | #80858B | #81858C |
+| Border | #DADBDC | #303236 |
+| Quiet selected surface | #EEEEEE | #1A1B1E |
 
 The embedded Montserrat font file is unchanged (SHA-256 `0f7b311b2f3279e4eef9b2f968bcdbab6e28f4daeb1f049f4f278a902bcd82f7`). Settings remain 520×382 logical pixels, setup 640×400. The original Screenshot artwork is retained.
 
 ## Shared components
 
 Primary actions invert existing monochrome text/background colors. Secondary controls keep neutral surfaces and a 1px outline. Buttons and shortcut fields use 36px height and 8px corners. Keyboard focus uses a 2px ring, hover/press use the existing foreground with reduced opacity; there is no animation to conflict with reduced motion. Progress uses a 4px monochrome track.
+
+Appearance settings use the same Lucide Monitor/Sun/Moon/Palette/ArrowLeft shapes as CONNECT. RU/EN are compact 32×28 controls at the right of the appearance heading; theme choices are 32px high with subdued selected fill and a thin muted border. Installer gear and Install share the same vertical center (341 logical pixels).
 
 Both shells keep only the wordmark, minimize and close, with native DWM rounding and no maximize button. Theme and language are accessed inside settings. The application persists RU/EN and System/Light/Dark; System follows AppsUseLightTheme and WM_SETTINGCHANGE. The installer keeps these choices throughout its wizard. Settings use the approved CONNECT SVG #8, rendered as a flat vector icon with no background.
 
