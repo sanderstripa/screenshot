@@ -14,7 +14,8 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/generate_settings_icon.ps1
-          git diff --exit-code -- src/approved_settings_icon.h
+          ./scripts/generate_theme_icons.ps1
+          git diff --exit-code -- src/approved_settings_icon.h src/vpn_theme_icons.h
           if ($LASTEXITCODE -ne 0) { throw "Generated icon differs from the approved SVG" }
       - name: Configure x64 native Windows
         run: cmake -S . -B build -A x64
@@ -93,17 +94,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.6.3-rc.2/Screenshot-Setup.exe" -OutFile dist/Screenshot-Setup.exe
-          $testedHash = "6e049eafd945b6eb6efb1efa4430439a0b730ec1cb75510fd53bc0dfa4ededa4"
-          if ((Get-FileHash dist/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $testedHash) { throw "Tested installer mismatch" }
-          $tag = "v0.6.3"
+          $tag = "v0.6.4-rc.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.6.3 — CONNECT VPN appearance" `
+              --title "Screenshot v0.6.4 candidate" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --latest
+              --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+

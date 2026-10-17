@@ -114,10 +114,10 @@ struct Settings {
             ComPtr<IDWriteTextLayout> layout;DWRITE_TEXT_METRICS metrics{};
             fonts->CreateTextLayout(value,static_cast<UINT32>(wcslen(value)),hintFont.Get(),200,32,&layout);
             if(layout)layout->GetMetrics(&metrics);
-            float left=rect.left+((rect.right-rect.left)-metrics.width-17)/2;
+            float left=rect.left+((rect.right-rect.left)-metrics.width-18)/2;
             brush->SetColor(color(foreground));
-            ConnectUI::drawIcon(target.Get(),brush.Get(),static_cast<ConnectUI::Icon>(icon),left,rect.top+10,12);
-            text(value,D2D1::RectF(left+17,rect.top+9,rect.right,rect.bottom),hintFont.Get(),foreground,0,false);
+            ConnectUI::drawIcon(target.Get(),brush.Get(),static_cast<ConnectUI::Icon>(icon),left,rect.top+9.5f,13);
+            text(value,D2D1::RectF(left+18,rect.top+9,rect.right,rect.bottom),hintFont.Get(),foreground,0,false);
             // Vertically center without changing the neutral choice typography.
         } else text(value,rect,hintFont.Get(),foreground,0,true);
         if(keyboardFocus&&focused==id)ConnectUI::feedback(target.Get(),brush.Get(),rect,color(muted()),false,false,true);
@@ -400,6 +400,7 @@ void showScreenshotCaptureNotice(bool saved) {
         settings->tr(L"Не удалось сохранить PNG в Pictures\\Screenshot. Проверьте доступ к папке.",L"Could not save PNG to Pictures\\Screenshot. Check folder permissions.");
     settings->focused=1;InvalidateRect(settings->hwnd,nullptr,FALSE);
 }
+
 
 
 

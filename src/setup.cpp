@@ -181,9 +181,9 @@ struct Installer {
             ComPtr<IDWriteTextLayout> layout;DWRITE_TEXT_METRICS metrics{};
             fonts->CreateTextLayout(value,static_cast<UINT32>(wcslen(value)),smallText.Get(),200,32,&layout);
             if(layout)layout->GetMetrics(&metrics);
-            float left=rect.left+((rect.right-rect.left)-metrics.width-17)/2;
-            brush->SetColor(foreground);ConnectUI::drawIcon(target.Get(),brush.Get(),static_cast<ConnectUI::Icon>(icon),left,rect.top+10,12);
-            label(value,left+17,rect.top,metrics.width+1,rect.bottom-rect.top,smallText.Get(),foreground);
+            float left=rect.left+((rect.right-rect.left)-metrics.width-18)/2;
+            brush->SetColor(foreground);ConnectUI::drawIcon(target.Get(),brush.Get(),static_cast<ConnectUI::Icon>(icon),left,rect.top+9.5f,13);
+            label(value,left+18,rect.top,metrics.width+1,rect.bottom-rect.top,smallText.Get(),foreground);
         } else label(value,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,smallText.Get(),foreground,DWRITE_TEXT_ALIGNMENT_CENTER);
         smallText->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
         if(keyboardFocus&&focused==id)ConnectUI::feedback(target.Get(),brush.Get(),rect,mutedInk(),false,false,true);
@@ -513,7 +513,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.3") &&
+            writeString(key,L"DisplayVersion",L"0.6.4") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -904,6 +904,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
+
 
 
 
