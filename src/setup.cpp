@@ -359,6 +359,30 @@ struct Installer {
         STARTUPINFOW si{sizeof(si)};
         PROCESS_INFORMATION pi{};
         std::wstring cmd=L"\""+file+(settings?L"\" --settings":L"\" --background");
+        // An administrator-run setup must not turn the ordinary background app
+        // into an administrator process. Reuse this user's Explorer token.
+        HANDLE processToken=nullptr;TOKEN_ELEVATION elevation{};DWORD bytes=0;
+        bool elevated=OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&processToken)&&
+            GetTokenInformation(processToken,TokenElevation,&elevation,sizeof(elevation),&bytes)&&elevation.TokenIsElevated;
+        if(processToken)CloseHandle(processToken);
+        if(elevated) {
+            DWORD desktopPID=0;GetWindowThreadProcessId(GetShellWindow(),&desktopPID);
+            HANDLE desktop=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,desktopPID);
+            HANDLE desktopToken=nullptr,primary=nullptr;
+            bool started=false;
+            if(desktop&&OpenProcessToken(desktop,TOKEN_QUERY|TOKEN_DUPLICATE,&desktopToken)&&
+                DuplicateTokenEx(desktopToken,TOKEN_QUERY|TOKEN_DUPLICATE|TOKEN_ASSIGN_PRIMARY,
+                    nullptr,SecurityImpersonation,TokenPrimary,&primary)) {
+                started=CreateProcessWithTokenW(primary,0,file.c_str(),cmd.data(),0,nullptr,nullptr,&si,&pi)!=FALSE;
+            }
+            if(primary)CloseHandle(primary);
+            if(desktopToken)CloseHandle(desktopToken);
+            if(desktop)CloseHandle(desktop);
+            if(started){CloseHandle(pi.hThread);CloseHandle(pi.hProcess);return true;}
+            // IPC still supports the fallback elevated worker via its single
+            // explicitly permitted open-settings message.
+            cmd=L"\""+file+(settings?L"\" --settings":L"\" --background");
+        }
         if(CreateProcessW(file.c_str(),cmd.data(),nullptr,nullptr,FALSE,0,
             nullptr,nullptr,&si,&pi)) {
             CloseHandle(pi.hThread);
