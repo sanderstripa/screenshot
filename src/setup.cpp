@@ -151,8 +151,10 @@ struct Installer {
         rounded(rect,8,ink());
         if(!active)outline(rect,8,edge());
         ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==(notice.empty()?1:20),pressed==(notice.empty()?1:20),focused==(notice.empty()?1:20));
-        label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,medium.Get(),
+        regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
             surface(),DWRITE_TEXT_ALIGNMENT_CENTER);
+        regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
         rounded(rect,8,D2D1::ColorF(light?0xF9F9F9:0x141414));
@@ -308,6 +310,7 @@ struct Installer {
         }
         if(step==Welcome&&!preferences)ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,338,172,374),ink(),hovered==8,pressed==8,focused==8);
         if(!notice.empty()) {
+            fill(D2D1::RectF(0,60,W,H),surface());
             rounded(D2D1::RectF(28,84,612,370),8,surface());outline(D2D1::RectF(28,84,612,370),8,edge());
             label(tr(L"УВЕДОМЛЕНИЕ",L"NOTICE"),52,108,536,36,medium.Get(),ink());
             label(notice,52,160,536,132,regular.Get(),mutedInk());
@@ -838,6 +841,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
 
 
 
