@@ -34,3 +34,5 @@ Original source: `sanderstripa/connect`, branch `connect-ui-system-v1-reference`
 ## Verification scope
 
 Windows tests exercise real native windows, language/theme selection, unchanged dimensions and palette, keyboard focus, minimize, Alt+F4, hotkey conflicts, Print Screen cancellation, installer update and disk/clipboard PNG. Test scripts restore the user's hotkey, language and theme preferences. Screenshots remain local.
+
+Theme SVGs match the actual locked lucide-vue-next 0.468.0 npm package and render at 13px. scripts/verify_vpn_theme_sources.ps1 verifies exact shape definitions; scripts/generate_theme_icons.ps1 generates native geometry directly from SVG.

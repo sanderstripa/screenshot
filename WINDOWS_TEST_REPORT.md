@@ -115,3 +115,6 @@ Installer SHA-256: `4f933e491b357cec05786071e2519470c4b0ad4b12eb2f7d099e33363fed
 Desktop checks: `scripts/test_ui.py`, `scripts/test_capture.py`, `scripts/test_wizard.py`. Python with Pillow is only needed for testing. Screenshots stay local and are not published.
 
 At v0.4.0 the approved attachment was unavailable. The user has since supplied it and v0.4.1 installs that design.
+
+## v0.6.4
+PASS exact SVG comparison against locked VPN npm package 0.468.0; 13px rendering. PASS Windows app at five DPI scales 100–250%, theme/language persistence, shortcut controls, actual installer update, preferences and PNG disk/clipboard. Light app/dark installer screenshots visually reviewed. Stable reuses tested candidate SHA-256 e182d7496391227a2014e1b3ab534a031096c09fea96d9e68bb5d147446410e5.

@@ -1,11 +1,9 @@
-# Screenshot v0.6.3 — CONNECT VPN appearance
+# Screenshot v0.6.4 — exact VPN theme icons
 
-- Raised the approved installer settings gear to the exact vertical center of Install (341 logical pixels).
-- Matched the application and installer appearance sections to CONNECT VPN: compact RU/EN buttons at the right, a palette heading and Monitor/Sun/Moon icons on System/Light/Dark choices.
-- Replaced contrasting selected preference fills with CONNECT's quiet #EEEEEE / #1A1B1E surfaces and muted outlines.
-- Adopted the requested VPN tones from CONNECT frontend/src/style.css: #F7F7F5 / #0C0C0D backgrounds and matching text, muted, separator and action colors. This palette change was explicitly requested by the user.
-- Kept Montserrat, window dimensions, approved settings #8, capture behavior and startup fixes.
+- Replaced the incorrectly sourced theme symbols with the exact Monitor, Sun and Moon SVGs from CONNECT VPN's locked lucide-vue-next 0.468.0 dependency.
+- Matched VPN's 13 px icon size in both application and installer settings.
+- Preserved the approved settings gear, Montserrat, palette, dimensions and application behavior.
 
-Verified on Windows: gear/Install center equality, selected-fill pixels, working theme and language, app at 100–250%, six installer stages in both themes and languages at 100%, actual update, hotkey conflict/Print Screen consent, window/keyboard controls and PNG disk/clipboard.
+Verified on Windows: application at 100–250% DPI, actual installer update, working RU/EN and System/Light/Dark, shortcut controls and PNG disk/clipboard. SVG shapes were also compared against the actual locked npm package.
 
-Exact tested installer SHA-256: `6e049eafd945b6eb6efb1efa4430439a0b730ec1cb75510fd53bc0dfa4ededa4`.
+Exact tested installer SHA-256: `e182d7496391227a2014e1b3ab534a031096c09fea96d9e68bb5d147446410e5`.
