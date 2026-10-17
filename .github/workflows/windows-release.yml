@@ -1,7 +1,7 @@
 name: Screenshot Windows release
 on:
   push:
-    branches: [main]
+    branches: [main, connect-ui-v1-screenshot-buttons]
   workflow_dispatch:
 permissions:
   contents: write
@@ -82,17 +82,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.5.2-rc.1/Screenshot-Setup.exe" -OutFile dist/Screenshot-Setup.exe
-          $testedHash = "20b6c486a7992e5ca775fff6e81f22cd5a214120549898af7edcddae40cd98a8"
-          if ((Get-FileHash dist/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $testedHash) { throw "Tested installer mismatch" }
-          $tag = "v0.5.2"
+          $tag = "v0.6.0-rc.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.5.2" `
+              --title "Screenshot v0.6.0 candidate" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --latest
+              --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+

@@ -22,6 +22,7 @@
 using Microsoft::WRL::ComPtr;
 
 namespace {
+extern std::function<void()> openSettings;
 constexpr int HOTKEY_ID = 100;
 constexpr UINT_PTR ANIMATION_TIMER = 101;
 constexpr DWORD FADE_IN_MS = 140;
@@ -437,10 +438,8 @@ struct App {
             InvalidateRect(overlay, nullptr, FALSE);
         } else {
             dismiss();
-            MessageBoxW(nullptr, saved
-                ? L"PNG сохранён в Pictures\\Screenshot, но буфер обмена занят. Повторите захват."
-                : L"Не удалось сохранить PNG в Pictures\\Screenshot. Проверьте доступ к папке.",
-                L"Screenshot", MB_OK|MB_ICONWARNING);
+            if(openSettings)openSettings();
+            showScreenshotCaptureNotice(saved);
         }
     }
 
@@ -675,3 +674,4 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     CoUninitialize();
     return 0;
 }
+

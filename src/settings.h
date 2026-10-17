@@ -6,3 +6,4 @@ void showScreenshotSettings(HINSTANCE instance, UINT vk, UINT modifiers,
     bool shortcutAvailable, std::function<bool(UINT, UINT)> apply, int previewTheme=-1);
 void closeScreenshotSettings();
 bool screenshotSettingsFocused();
+void showScreenshotCaptureNotice(bool saved);

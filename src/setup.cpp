@@ -9,6 +9,7 @@
 #include <d2d1.h>
 #include <dwrite.h>
 #include "bundled_font.h"
+#include "connect_ui.h"
 #include <wrl/client.h>
 #include <string>
 #include <atomic>
@@ -41,13 +42,13 @@ bool inside(POINT p, D2D1_RECT_F r) {
     return p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
 }
 D2D1_RECT_F primaryRect(Step s) {
-    if (s == Welcome) return D2D1::RectF(219,314,421,368);
-    if (s == Hotkey) return D2D1::RectF(424,327,603,374);
-    if (s == Confirm) return D2D1::RectF(410,320,602,372);
-    return D2D1::RectF(219,313,421,366);
+    if (s == Welcome) return D2D1::RectF(219,323,421,359);
+    if (s == Hotkey) return D2D1::RectF(424,333,603,369);
+    if (s == Confirm) return D2D1::RectF(410,328,602,364);
+    return D2D1::RectF(219,322,421,358);
 }
-D2D1_RECT_F secondaryRect() {return D2D1::RectF(35,321,176,373);}
-D2D1_RECT_F inputRect() {return D2D1::RectF(40,184,599,249);}
+D2D1_RECT_F secondaryRect() {return D2D1::RectF(35,328,176,364);}
+D2D1_RECT_F inputRect() {return D2D1::RectF(40,198,599,234);}
 struct Installer {
     HINSTANCE instance{};
     HWND hwnd{};
@@ -62,7 +63,9 @@ struct Installer {
     std::atomic<int> result{-99};
     std::atomic<bool> working{false};
     bool listening = false;
-    bool light = false, english = false;
+    bool light = false, english = false, preferences = false;
+    int hovered=-1,pressed=-1,focused=-1; DWORD themeMode=2;std::wstring notice;
+    void showNotice(const wchar_t* message) {notice=message;focused=20;redraw();}
     const wchar_t* tr(const wchar_t* ru,const wchar_t* en) const {return english?en:ru;}
     D2D1_COLOR_F ink() const {return D2D1::ColorF(light?0x111111:0xF4F4F4);}
     D2D1_COLOR_F mutedInk() const {return D2D1::ColorF(light?0x75797F:0x8B8E94);}
@@ -106,7 +109,7 @@ struct Installer {
             return SUCCEEDED(fonts->CreateTextFormat(family,collection.Get(),weight,DWRITE_FONT_STYLE_NORMAL,
                 DWRITE_FONT_STRETCH_NORMAL,size,L"ru-ru",&font));
         };
-        return create(16,DWRITE_FONT_WEIGHT_NORMAL,regular)&&create(15,DWRITE_FONT_WEIGHT_MEDIUM,medium)
+        return create(13,DWRITE_FONT_WEIGHT_NORMAL,regular)&&create(16,DWRITE_FONT_WEIGHT_MEDIUM,medium)
             &&create(12,DWRITE_FONT_WEIGHT_NORMAL,smallText)&&create(25,DWRITE_FONT_WEIGHT_MEDIUM,headline);
     }
 
@@ -132,15 +135,9 @@ struct Installer {
         target->Clear(surface());
     }
     void header() {
-        label(L"Screenshot",64,17,220,32,smallText.Get(),ink());
-        if(step==Welcome) {
-            auto toggle=D2D1::RectF(477,16,519,38);
-            rounded(toggle,11,surface());outline(toggle,11,edge());
-            brush->SetColor(D2D1::ColorF(light?0x62666B:0x888B90));
-            target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(light?508.0f:488.0f,27),7,7),brush.Get());
-            regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-            label(english?L"EN":L"RU",28,342,50,28,regular.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_CENTER);
-            regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        label(L"SCREENSHOT.",28,17,300,32,medium.Get(),ink());
+        if(step==Welcome&&!preferences&&notice.empty()) {
+            label(tr(L"Настройки",L"Settings"),28,342,144,28,regular.Get(),mutedInk());
         }
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
         brush->SetColor(mutedInk());
@@ -149,14 +146,16 @@ struct Installer {
         target->DrawLine(D2D1::Point2F(608,20),D2D1::Point2F(598,30),brush.Get(),1.25f);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
-        rounded(rect,13,D2D1::ColorF(light?(active?0xFFFFFF:0xF5F5F5):(active?0x141414:0x0A0A0A)));
-        outline(rect,13,edge());
+        rounded(rect,8,ink());
+        if(!active)outline(rect,8,edge());
+        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==1,pressed==1,focused==1);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,medium.Get(),
-            ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
+            surface(),DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
-        rounded(rect,12,D2D1::ColorF(light?0xFFFFFF:0x141414));
-        outline(rect,12,edge());
+        rounded(rect,8,D2D1::ColorF(light?0xF9F9F9:0x141414));
+        outline(rect,8,edge());
+        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==2,pressed==2,focused==2);
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
             ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -179,16 +178,42 @@ struct Installer {
     void content() {
         const auto white=ink();
         const auto muted=mutedInk();
+        if(preferences) {
+            label(tr(L"НАСТРОЙКИ",L"SETTINGS"),28,80,550,36,headline.Get(),white);
+            label(tr(L"Тема",L"Theme"),28,136,550,24,regular.Get(),muted);
+            const wchar_t* options[]={tr(L"Система",L"System"),tr(L"Светлая",L"Light"),tr(L"Тёмная",L"Dark")};
+            for(int i=0;i<3;i++) {
+                auto rect=D2D1::RectF(28+196.0f*i,168,216+196.0f*i,204);
+                if(themeMode==static_cast<DWORD>(i))rounded(rect,8,ink());
+                else {rounded(rect,8,D2D1::ColorF(light?0xF9F9F9:0x141414));outline(rect,8,edge());}
+                ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==3+i,pressed==3+i,focused==3+i);
+                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+                label(options[i],rect.left,rect.top,188,36,regular.Get(),themeMode==static_cast<DWORD>(i)?surface():ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
+                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+            }
+            label(tr(L"Язык",L"Language"),28,228,550,24,regular.Get(),muted);
+            for(int i=0;i<2;i++) {
+                auto rect=D2D1::RectF(28+196.0f*i,260,216+196.0f*i,296);
+                bool selected=english==(i!=0);
+                rounded(rect,8,selected?ink():D2D1::ColorF(light?0xF9F9F9:0x141414));
+                if(!selected)outline(rect,8,edge());
+                ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==6+i,pressed==6+i,focused==6+i);
+                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+                label(i?L"EN":L"RU",rect.left,rect.top,188,36,regular.Get(),selected?surface():ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
+                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+            }
+            secondaryButton(D2D1::RectF(28,332,176,368),tr(L"Назад",L"Back"));return;
+        }
         if(step==Welcome) {
             label(L"Screenshot",40,231,560,50,headline.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
             button(primaryRect(step),tr(L"Установить",L"Install"));
         }
         if(step==Installing) {
             label(tr(L"Установка Screenshot",L"Installing Screenshot"),43,112,550,54,headline.Get(),white);
-            rounded(D2D1::RectF(44,203,593,221),9,edge());
+            rounded(D2D1::RectF(44,210,593,214),2,edge());
             int p=progress.load();
             float f=std::clamp(p/100.0f,0.0f,1.0f);
-            if(f>0) rounded(D2D1::RectF(44,203,44+549*f,221),9,ink());
+            if(f>0) rounded(D2D1::RectF(44,210,44+549*f,214),2,ink());
             label(std::to_wstring(p)+L"%",527,237,70,31,regular.Get(),muted,
                 DWRITE_TEXT_ALIGNMENT_TRAILING);
             if(result.load()>=1) {
@@ -208,9 +233,10 @@ struct Installer {
             label(tr(L"Горячая клавиша",L"Keyboard shortcut"),40,93,560,53,headline.Get(),white);
             label(tr(L"Нажмите клавишу для создания скриншота.",L"Press a key to capture screenshots."),40,146,563,34,
                 regular.Get(),muted);
-            rounded(inputRect(),11,surface());
-            outline(inputRect(),11,listening?mutedInk():edge());
-            label(listening?tr(L"Нажмите клавишу…",L"Press a key…"):config.title,57,184,520,65,
+            rounded(inputRect(),8,surface());
+            ConnectUI::feedback(target.Get(),brush.Get(),inputRect(),ink(),hovered==0,pressed==0,focused==0);
+            outline(inputRect(),8,listening?mutedInk():edge());
+            label(listening?tr(L"Нажмите клавишу…",L"Press a key…"):config.title,57,198,520,36,
                 medium.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
             if(listening) label(tr(L"Esc — отмена",L"Esc — cancel"),40,262,300,30,smallText.Get(),muted);
             button(primaryRect(step),tr(L"Далее",L"Next"));
@@ -275,8 +301,14 @@ struct Installer {
         target->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_CLEARTYPE);
         background();header();content();
         if(artwork) {
-            target->DrawBitmap(artwork.Get(),D2D1::RectF(18,14,46,42));
-            if(step==Welcome)target->DrawBitmap(artwork.Get(),D2D1::RectF(254,83,386,215));
+
+            if(step==Welcome&&!preferences)target->DrawBitmap(artwork.Get(),D2D1::RectF(254,83,386,215));
+        }
+        if(!notice.empty()) {
+            rounded(D2D1::RectF(28,84,612,370),8,surface());outline(D2D1::RectF(28,84,612,370),8,edge());
+            label(tr(L"УВЕДОМЛЕНИЕ",L"NOTICE"),52,108,536,36,medium.Get(),ink());
+            label(notice,52,160,536,132,regular.Get(),mutedInk());
+            button(D2D1::RectF(436,310,588,346),L"OK");
         }
         HRESULT hr=target->EndDraw();
         if(hr==D2DERR_RECREATE_TARGET){artwork.Reset();brush.Reset();target.Reset();}
@@ -331,20 +363,18 @@ struct Installer {
     }
     void activateHotkey() {
         if(!saveConfig()) {
-            MessageBoxW(hwnd,tr(L"Не удалось сохранить клавишу.",L"Could not save the shortcut."),L"Screenshot",MB_OK|MB_ICONERROR);
+            showNotice(tr(L"Не удалось сохранить клавишу.",L"Could not save the shortcut."));
             return;
         }
         if(config.vk==VK_SNAPSHOT && config.mod==0) {
             if(!disableSnippingBinding()) {
-                MessageBoxW(hwnd,tr(L"Windows не разрешила изменить системную привязку Print Screen.\nОтключите её вручную в Параметры → Специальные возможности → Клавиатура.",L"Windows could not change the Print Screen binding.\nDisable it in Settings > Accessibility > Keyboard."),
-                    L"Screenshot",MB_OK|MB_ICONWARNING);
+                showNotice(tr(L"Windows не разрешила изменить системную привязку Print Screen.\nОтключите её вручную в Параметры → Специальные возможности → Клавиатура.",L"Windows could not change the Print Screen binding.\nDisable it in Settings > Accessibility > Keyboard."));
                 return;
             }
         }
         needsRelogin=!verifyHotkey();
         if(!launchBackground()) {
-            MessageBoxW(hwnd,tr(L"Не удалось запустить Screenshot. Повторите установку.",L"Could not start Screenshot. Please reinstall."),
-                L"Screenshot",MB_OK|MB_ICONERROR);
+            showNotice(tr(L"Не удалось запустить Screenshot. Повторите установку.",L"Could not start Screenshot. Please reinstall."));
             return;
         }
         step=Ready;
@@ -414,7 +444,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.5.2") &&
+            writeString(key,L"DisplayVersion",L"0.6.0") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -546,9 +576,58 @@ struct Installer {
         if(mod&MOD_SHIFT)config.title=L"Shift + "+config.title;
         listening=false;redraw();
     }
+    int hit(POINT p) const {
+        if(p.y<47&&p.x>530)return p.x>574?11:10;
+        if(!notice.empty())return inside(p,D2D1::RectF(436,310,588,346))?20:-1;
+        if(preferences) {
+            for(int i=0;i<3;i++)if(inside(p,D2D1::RectF(28+196.0f*i,168,216+196.0f*i,204)))return 3+i;
+            for(int i=0;i<2;i++)if(inside(p,D2D1::RectF(28+196.0f*i,260,216+196.0f*i,296)))return 6+i;
+            return inside(p,D2D1::RectF(28,332,176,368))?2:-1;
+        }
+        if(step==Welcome&&inside(p,D2D1::RectF(28,334,172,378)))return 8;
+        if(step==Hotkey&&inside(p,inputRect()))return 0;
+        if(step==Confirm&&inside(p,secondaryRect()))return 2;
+        if(step==Installing)return result.load()==1&&inside(p,D2D1::RectF(430,345,602,390))?1:-1;
+        return inside(p,primaryRect(step))?1:-1;
+    }
+    void tab(bool reverse) {
+        std::vector<int> ids;
+        if(!notice.empty())ids={20,10,11};
+        else if(preferences)ids={3,4,5,6,7,2,10,11};
+        else if(step==Welcome)ids={1,8,10,11};
+        else if(step==Hotkey)ids={0,1,10,11};
+        else if(step==Confirm)ids={2,1,10,11};
+        else if(step==Installing&&result.load()!=1)ids={10,11};
+        else ids={1,10,11};
+        int index=-1;for(int i=0;i<static_cast<int>(ids.size());i++)if(ids[i]==focused)index=i;
+        focused=ids[(index+(reverse?static_cast<int>(ids.size())-1:1)+static_cast<int>(ids.size()))%ids.size()];redraw();
+    }
+    void activateFocused() {
+        POINT p{};
+        if(focused==10)p={550,26};else if(focused==11)p={600,26};
+        else if(focused==20)p={510,328};
+        else if(preferences) {
+            if(focused>=3&&focused<=5)p={120+196*(focused-3),186};
+            else if(focused>=6&&focused<=7)p={120+196*(focused-6),278};
+            else p={100,350};
+        } else if(focused==0)p={120,216};else if(focused==8)p={80,356};
+        else {auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}
+        nextClick(p);
+    }
     void nextClick(POINT p) {
-        if(step==Welcome&&p.x>=469&&p.x<=525&&p.y>=10&&p.y<=44){light=!light;theme();return;}
-        if(step==Welcome&&p.x>=20&&p.x<=86&&p.y>=334&&p.y<=378){english=!english;redraw();return;}
+        focused=hit(p);
+        if(p.y<47&&p.x>530) {
+            if(p.x>574)SendMessageW(hwnd,WM_CLOSE,0,0);else ShowWindow(hwnd,SW_MINIMIZE);return;
+        }
+        if(!notice.empty()){if(inside(p,D2D1::RectF(436,310,588,346))){notice.clear();focused=-1;redraw();}return;}
+        if(preferences) {
+            if(p.y>=168&&p.y<=204&&p.x>=28&&p.x<=608) {
+                int column=(p.x-28)/196;if(column<3&&(p.x-28)%196<=188){themeMode=column;light=column==0?ConnectUI::systemLight():column==1;theme();}
+            } else if(p.y>=260&&p.y<=296&&p.x>=28&&p.x<=412){english=p.x>=224;redraw();}
+            else if(inside(p,D2D1::RectF(28,332,176,368))){preferences=false;redraw();}
+            return;
+        }
+        if(step==Welcome&&p.x>=28&&p.x<=172&&p.y>=334&&p.y<=378){preferences=true;focused=3;redraw();return;}
         if(p.y<47 && p.x>574) { SendMessageW(hwnd,WM_CLOSE,0,0);return; }
         if(p.y<47 && p.x>530) { ShowWindow(hwnd,SW_MINIMIZE);return; }
         if(step==Hotkey&&inside(p,inputRect())) {listening=true;redraw();return;}
@@ -567,7 +646,7 @@ struct Installer {
             case Hotkey:
                 if(config.vk==VK_SNAPSHOT && config.mod==0) {step=Confirm;redraw();}
                 else if(verifyHotkey()) activateHotkey();
-                else MessageBoxW(hwnd,tr(L"Эта клавиша занята другим приложением.\nВыберите другую клавишу.",L"This shortcut is used by another app.\nChoose another key."),L"Screenshot",MB_OK|MB_ICONWARNING);
+                else showNotice(tr(L"Эта клавиша занята другим приложением.\nВыберите другую клавишу.",L"This shortcut is used by another app.\nChoose another key."));
                 break;
             case Confirm:activateHotkey();break;
             case Ready:DestroyWindow(hwnd);break;
@@ -590,7 +669,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             POINT p{GET_X_LPARAM(l),GET_Y_LPARAM(l)};
             ScreenToClient(hwnd,&p);
             p.x=int(p.x/s->scale); p.y=int(p.y/s->scale);
-            if(p.y<47&&p.x>=56&&p.x<(s->step==Welcome?465:527))return HTCAPTION;
+            if(p.y<47&&p.x>=0&&p.x<527)return HTCAPTION;
             return hit;
         }
         case WM_NCCALCSIZE: if(w)return 0;break;
@@ -601,6 +680,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
                 SWP_NOZORDER|SWP_NOACTIVATE);
             return 0;
         }
+        case WM_SETTINGCHANGE:if(s->themeMode==0){s->light=ConnectUI::systemLight();s->theme();}return 0;
         case WM_SIZE:
             s->artwork.Reset();s->brush.Reset();s->target.Reset();s->redraw();return 0;
         case WM_PAINT:s->paint();return 0;
@@ -609,7 +689,11 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             if(s->result.load()==0)s->step=Installed;
             s->working=false;s->redraw();return 0;
         case WM_APP+11:s->redraw();return 0;
+        case WM_MOUSEMOVE:{POINT p{int(GET_X_LPARAM(l)/s->scale),int(GET_Y_LPARAM(l)/s->scale)};int hit=s->hit(p);if(hit!=s->hovered){s->hovered=hit;s->redraw();}TRACKMOUSEEVENT track{sizeof(track),TME_LEAVE,hwnd,0};TrackMouseEvent(&track);return 0;}
+        case WM_MOUSELEAVE:s->hovered=-1;s->redraw();return 0;
+        case WM_LBUTTONDOWN:s->pressed=s->hit(POINT{int(GET_X_LPARAM(l)/s->scale),int(GET_Y_LPARAM(l)/s->scale)});SetFocus(hwnd);s->redraw();return 0;
         case WM_LBUTTONUP:{
+            s->pressed=-1;
             POINT p{GET_X_LPARAM(l),GET_Y_LPARAM(l)};
             p.x=int(p.x/s->scale);p.y=int(p.y/s->scale);
             s->nextClick(p);return 0;
@@ -626,15 +710,18 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             break;
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN:
+            if(w==VK_TAB){s->tab((GetKeyState(VK_SHIFT)&0x8000)!=0);return 0;}
             if(s->step==Hotkey&&s->listening) {
-                if(w==VK_ESCAPE){s->listening=false;s->redraw();return 0;}
+                if(w==VK_RETURN||w==VK_SPACE){if(s->focused>=0)s->activateFocused();return 0;}
+            if(w==VK_ESCAPE){s->listening=false;s->redraw();return 0;}
                 UINT mod=0;
                 if(GetKeyState(VK_CONTROL)&0x8000)mod|=MOD_CONTROL;
                 if(GetKeyState(VK_MENU)&0x8000)mod|=MOD_ALT;
                 if(GetKeyState(VK_SHIFT)&0x8000)mod|=MOD_SHIFT;
                 s->choose(static_cast<UINT>(w),mod);return 0;
             }
-            if(w==VK_ESCAPE&&s->step!=Installing){DestroyWindow(hwnd);return 0;}
+            if(w==VK_RETURN||w==VK_SPACE){if(s->focused>=0)s->activateFocused();return 0;}
+            if(w==VK_ESCAPE){if(!s->notice.empty()){s->notice.clear();s->redraw();return 0;}if(s->preferences){s->preferences=false;s->redraw();return 0;}if(s->step!=Installing){DestroyWindow(hwnd);return 0;}}
             break;
         case WM_CLOSE:
             if(s->step==Installing&&s->working.load()) {
@@ -686,7 +773,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
         setup.step=static_cast<Step>(std::clamp(step,0,5));
         setup.scale=std::clamp(dpi/96.0f,1.0f,3.0f);
         setup.progress=62;
-        setup.light=wcsstr(commandLine,L"light")!=nullptr;
+        setup.light=wcsstr(commandLine,L"light")!=nullptr;setup.themeMode=setup.light?1:2;
+        setup.preferences=wcsstr(commandLine,L"preferences")!=nullptr;
         setup.english=wcsstr(commandLine,L"en")!=nullptr;
     }
     setup.icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),
@@ -719,6 +807,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     // Keep a real DWM frame: Windows 11 owns corners and shadow, never a black bitmap mask.
     const DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;
     DwmSetWindowAttribute(hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
+    if(commandLine&&wcsstr(commandLine,L"system")){setup.themeMode=0;setup.light=ConnectUI::systemLight();}
     BOOL dark=!setup.light;
     DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));
     setup.theme();
@@ -744,6 +833,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
+
 
 
 
