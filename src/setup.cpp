@@ -140,6 +140,8 @@ struct Installer {
             label(tr(L"Настройки",L"Settings"),28,342,144,28,regular.Get(),mutedInk());
         }
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(534,10,574,44),ink(),hovered==10,pressed==10,focused==10);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(582,10,622,44),ink(),hovered==11,pressed==11,focused==11);
         brush->SetColor(mutedInk());
         target->DrawLine(D2D1::Point2F(553,27),D2D1::Point2F(564,27),brush.Get(),1.2f);
         target->DrawLine(D2D1::Point2F(598,20),D2D1::Point2F(608,30),brush.Get(),1.25f);
@@ -148,7 +150,7 @@ struct Installer {
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
         rounded(rect,8,ink());
         if(!active)outline(rect,8,edge());
-        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==1,pressed==1,focused==1);
+        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==(notice.empty()?1:20),pressed==(notice.empty()?1:20),focused==(notice.empty()?1:20));
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,medium.Get(),
             surface(),DWRITE_TEXT_ALIGNMENT_CENTER);
     }
@@ -304,6 +306,7 @@ struct Installer {
 
             if(step==Welcome&&!preferences)target->DrawBitmap(artwork.Get(),D2D1::RectF(254,83,386,215));
         }
+        if(step==Welcome&&!preferences)ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,338,172,374),ink(),hovered==8,pressed==8,focused==8);
         if(!notice.empty()) {
             rounded(D2D1::RectF(28,84,612,370),8,surface());outline(D2D1::RectF(28,84,612,370),8,edge());
             label(tr(L"УВЕДОМЛЕНИЕ",L"NOTICE"),52,108,536,36,medium.Get(),ink());
@@ -591,6 +594,7 @@ struct Installer {
         return inside(p,primaryRect(step))?1:-1;
     }
     void tab(bool reverse) {
+        listening=false;
         std::vector<int> ids;
         if(!notice.empty())ids={20,10,11};
         else if(preferences)ids={3,4,5,6,7,2,10,11};
@@ -710,6 +714,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
             break;
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN:
+            if(msg==WM_SYSKEYDOWN&&w==VK_F4)return DefWindowProcW(hwnd,msg,w,l);
             if(w==VK_TAB){s->tab((GetKeyState(VK_SHIFT)&0x8000)!=0);return 0;}
             if(s->step==Hotkey&&s->listening) {
                 if(w==VK_RETURN||w==VK_SPACE){if(s->focused>=0)s->activateFocused();return 0;}
@@ -833,6 +838,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
 
 
 

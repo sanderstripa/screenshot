@@ -125,6 +125,8 @@ struct Settings {
         target->DrawLine(D2D1::Point2F(481,31),D2D1::Point2F(489,39),brush.Get(),1);
         target->DrawLine(D2D1::Point2F(489,31),D2D1::Point2F(481,39),brush.Get(),1);
         target->DrawLine(D2D1::Point2F(436,35),D2D1::Point2F(446,35),brush.Get(),1);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(420,18,460,52),color(ink()),hovered==10,pressed==10,focused==10);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(464,18,504,52),color(ink()),hovered==11,pressed==11,focused==11);
         line(80);
         text(tr(L"НАСТРОЙКИ",L"SETTINGS"),D2D1::RectF(28,98,296,128),title.Get(),ink(),1.8f);
         if(appearance) {
@@ -284,6 +286,7 @@ struct Settings {
     }
     void click(float x,float y) {activate(hit(x,y));}
     void tab(bool reverse) {
+        listening=false;
         const int normal[]={2,0,8,1,10,11}, prefs[]={3,4,5,6,7,8,10,11}, consent[]={8,1,10,11}, modal[]={1,10,11};
         auto list=!notice.empty()?modal:(appearance?prefs:(confirmation?consent:normal));int count=!notice.empty()?3:(appearance?8:(confirmation?4:6)),index=-1;
         for(int i=0;i<count;i++)if(list[i]==focused)index=i;
@@ -309,6 +312,7 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
     case WM_DPICHANGED:{s->scale=HIWORD(wp)/96.0f;auto r=reinterpret_cast<RECT*>(lp);SetWindowPos(hwnd,nullptr,r->left,r->top,int(WIDTH*s->scale),int(HEIGHT*s->scale),SWP_NOZORDER|SWP_NOACTIVATE);return 0;}
     case WM_LBUTTONUP:s->pressed=-1;s->click(GET_X_LPARAM(lp)/s->scale,GET_Y_LPARAM(lp)/s->scale);return 0;
     case WM_KEYDOWN:case WM_SYSKEYDOWN:
+        if(message==WM_SYSKEYDOWN&&wp==VK_F4)return DefWindowProcW(hwnd,message,wp,lp);
         if(wp==VK_TAB){s->tab((GetKeyState(VK_SHIFT)&0x8000)!=0);return 0;}
         if(s->listening)s->key(static_cast<UINT>(wp));
         else if(wp==VK_ESCAPE){if(!s->notice.empty()){s->notice.clear();InvalidateRect(hwnd,nullptr,FALSE);}else if(s->confirmation){s->confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);}else if(s->appearance){s->appearance=false;s->focused=2;InvalidateRect(hwnd,nullptr,FALSE);}else DestroyWindow(hwnd);}
@@ -374,3 +378,4 @@ void showScreenshotCaptureNotice(bool saved) {
         settings->tr(L"Не удалось сохранить PNG в Pictures\\Screenshot. Проверьте доступ к папке.",L"Could not save PNG to Pictures\\Screenshot. Check folder permissions.");
     settings->focused=1;InvalidateRect(settings->hwnd,nullptr,FALSE);
 }
+

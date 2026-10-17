@@ -77,12 +77,16 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
           Copy-Item ".\build\Release\Screenshot-Setup.exe" ".\dist\Screenshot-Setup.exe" -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Screenshot-Windows-x64
+          path: dist/Screenshot-Setup.exe
       - name: Publish only after checks are green
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.6.0-rc.1"
+          $tag = "v0.6.0-rc.2"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
@@ -93,4 +97,5 @@ jobs:
               --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+
 
