@@ -1,5 +1,15 @@
 # Windows 11 verification — 2026-10-18
 
+## v0.6.1 — confirmed launch-permissions regression
+
+Observed the user's running v0.6.0 worker with TokenElevation=1. An ordinary launch exited without opening a window; PostMessage(WM_SCREENSHOT_SETTINGS) returned false and GetLastError=5 (access denied). This cross-integrity case was missing from the earlier tests.
+
+Final candidate v0.6.1-rc.3 SHA-256: `43f9ca69c5adbca1650e2089348bf02f9820fba15419438891dc33e4fc9c0e4a`. The final release reuses these exact bytes.
+
+PASS update over an elevated installation; PASS a real ordinary Start menu launch opens settings in a deliberately elevated worker; PASS the administrator-run wizard launches a worker with TokenElevation=0 via the desktop Shell; PASS its finish button opens the app window. The elevated test helper restores the user's hotkey and stops its fixtures. Reproducible tests: `scripts/test_launch_permissions.ps1` with `scripts/test_elevated_setup.ps1`; the driver runs normally and requests interactive UAC only for its elevated helper.
+
+PASS existing settings regression, persisted language/theme, live hotkey replacement and conflict rejection, Print Screen cancellation, five DPI scales, keyboard controls and PNG disk/clipboard output. Native wizard interactions and notification checks passed. No broad capture implementation change was made. The approved gear #8 source is still awaiting the user's attachment, so no replacement icon is included; only the unwanted filled background was removed.
+
 ## v0.6.0 — CONNECT UI System integration
 
 Final candidate v0.6.0-rc.3 tested on Windows 11 build 26100; final release reuses its exact installer bytes. SHA-256 `4b50e4452066a0ca752c8e971b9a8dcdda7ec1d5ff2e6d45663b90bcfb0800c9`.

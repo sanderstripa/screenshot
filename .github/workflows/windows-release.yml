@@ -87,17 +87,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.6.1-rc.3"
+          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.6.1-rc.3/Screenshot-Setup.exe" -OutFile dist/Screenshot-Setup.exe
+          $testedHash = "43f9ca69c5adbca1650e2089348bf02f9820fba15419438891dc33e4fc9c0e4a"
+          if ((Get-FileHash dist/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $testedHash) { throw "Tested installer mismatch" }
+          $tag = "v0.6.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.6.1 candidate" `
+              --title "Screenshot v0.6.1 — launch fix" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --prerelease
+              --latest
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
-
-
-
