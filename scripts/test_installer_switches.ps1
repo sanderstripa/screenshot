@@ -68,7 +68,7 @@ try {
     if($hwnd -eq [IntPtr]::Zero){throw 'Installer window missing'}
     [SettingsNative]::ShowWindow($hwnd,9)|Out-Null;Start-Sleep -Milliseconds 400
     $welcome=Shot $hwnd 'welcome-dark-ru'
-    Click $hwnd 80 356
+    Click $hwnd 46 356
     $ru=Shot $hwnd 'preferences-dark-ru'
     Click $hwnd 300 278
     $en=Shot $hwnd 'preferences-dark-en'
@@ -86,7 +86,7 @@ try {
     if($darkEn.Pixel.R -ne 10){throw 'Dark selection failed'}
     Click $hwnd 100 350
     Shot $hwnd 'welcome-dark-en'|Out-Null
-    Click $hwnd 80 356
+    Click $hwnd 46 356
     Click $hwnd 100 186
     Shot $hwnd 'preferences-system-en'|Out-Null
     Click $hwnd 300 186

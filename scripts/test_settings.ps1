@@ -94,7 +94,7 @@ function Shot([IntPtr]$hwnd,[string]$name,[double]$scale=0) {
     $bitmap.Dispose();return $pixel
 }
 function Theme([int]$mode,[double]$scale=0) {
-    Click $hwnd 396 116 $scale
+    Click $hwnd 476 116 $scale
     Click $hwnd (102+156*$mode) 194 $scale
     Click $hwnd 100 350 $scale
 }
@@ -192,7 +192,7 @@ try {
     }
     [SettingsNative]::ChangeDpi($hwnd,96)
     Start-Sleep -Milliseconds 150
-    Click $hwnd 396 116
+    Click $hwnd 476 116
     Click $hwnd 240 282
     if((Get-ItemPropertyValue $config LanguageEN) -ne 1){throw 'English language switch did not save'}
     Shot $hwnd 'preferences-english'|Out-Null

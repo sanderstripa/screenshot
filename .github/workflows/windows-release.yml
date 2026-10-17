@@ -10,6 +10,12 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      - name: Verify approved SVG geometry
+        shell: pwsh
+        run: |
+          ./scripts/generate_settings_icon.ps1
+          git diff --exit-code -- src/approved_settings_icon.h
+          if ($LASTEXITCODE -ne 0) { throw "Generated icon differs from the approved SVG" }
       - name: Configure x64 native Windows
         run: cmake -S . -B build -A x64
       - name: Compile screenshot app
@@ -87,17 +93,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.6.1-rc.3/Screenshot-Setup.exe" -OutFile dist/Screenshot-Setup.exe
-          $testedHash = "43f9ca69c5adbca1650e2089348bf02f9820fba15419438891dc33e4fc9c0e4a"
-          if ((Get-FileHash dist/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $testedHash) { throw "Tested installer mismatch" }
-          $tag = "v0.6.1"
+          $tag = "v0.6.2-rc.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.6.1 — launch fix" `
+              --title "Screenshot v0.6.2 candidate" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --latest
+              --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+

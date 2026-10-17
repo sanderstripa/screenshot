@@ -10,6 +10,7 @@
 #include <dwrite.h>
 #include "bundled_font.h"
 #include "connect_ui.h"
+#include "approved_settings_icon.h"
 #include <wrl/client.h>
 #include <string>
 #include <atomic>
@@ -82,6 +83,7 @@ struct Installer {
     ComPtr<ID2D1HwndRenderTarget> target;
     ComPtr<ID2D1SolidColorBrush> brush;
     ComPtr<ID2D1Bitmap> artwork;
+    ComPtr<ID2D1PathGeometry> settingsIcon;
     std::thread worker;
     ComPtr<IDWriteFactory> fonts;
     ComPtr<IDWriteTextFormat> regular, medium, smallText, headline;
@@ -141,7 +143,8 @@ struct Installer {
     void header() {
         label(L"SCREENSHOT.",28,17,300,32,medium.Get(),ink());
         if(step==Welcome&&!preferences&&notice.empty()) {
-            label(tr(L"Настройки",L"Settings"),28,342,144,28,regular.Get(),mutedInk());
+            brush->SetColor(hovered==8||pressed==8?ink():mutedInk());
+            drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),34,344,24);
         }
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
         ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(534,10,574,44),ink(),hovered==10,pressed==10,focused==10);
@@ -312,7 +315,7 @@ struct Installer {
 
             if(step==Welcome&&!preferences)target->DrawBitmap(artwork.Get(),D2D1::RectF(254,83,386,215));
         }
-        if(step==Welcome&&!preferences&&focused==8){outline(D2D1::RectF(28,338,172,374),8,ink(),2);}
+        if(step==Welcome&&!preferences&&focused==8){outline(D2D1::RectF(28,338,64,374),8,ink(),2);}
         if(!notice.empty()) {
             fill(D2D1::RectF(0,60,W,H),surface());
             rounded(D2D1::RectF(28,84,612,370),8,surface());outline(D2D1::RectF(28,84,612,370),8,edge());
@@ -507,7 +510,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.1") &&
+            writeString(key,L"DisplayVersion",L"0.6.2") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -647,7 +650,7 @@ struct Installer {
             for(int i=0;i<2;i++)if(inside(p,D2D1::RectF(28+196.0f*i,260,216+196.0f*i,296)))return 6+i;
             return inside(p,D2D1::RectF(28,332,176,368))?2:-1;
         }
-        if(step==Welcome&&inside(p,D2D1::RectF(28,334,172,378)))return 8;
+        if(step==Welcome&&inside(p,D2D1::RectF(28,338,64,374)))return 8;
         if(step==Hotkey&&inside(p,inputRect()))return 0;
         if(step==Confirm&&inside(p,secondaryRect()))return 2;
         if(step==Installing)return result.load()==1&&inside(p,D2D1::RectF(430,345,602,390))?1:-1;
@@ -674,7 +677,7 @@ struct Installer {
             if(focused>=3&&focused<=5)p={120+196*(focused-3),186};
             else if(focused>=6&&focused<=7)p={120+196*(focused-6),278};
             else p={100,350};
-        } else if(focused==0)p={120,216};else if(focused==8)p={80,356};
+        } else if(focused==0)p={120,216};else if(focused==8)p={46,356};
         else {auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}
         nextClick(p);
     }
@@ -691,7 +694,7 @@ struct Installer {
             else if(inside(p,D2D1::RectF(28,332,176,368))){preferences=false;redraw();}
             return;
         }
-        if(step==Welcome&&p.x>=28&&p.x<=172&&p.y>=334&&p.y<=378){preferences=true;focused=3;redraw();return;}
+        if(step==Welcome&&p.x>=28&&p.x<=64&&p.y>=338&&p.y<=374){preferences=true;focused=3;redraw();return;}
         if(p.y<47 && p.x>574) { SendMessageW(hwnd,WM_CLOSE,0,0);return; }
         if(p.y<47 && p.x>530) { ShowWindow(hwnd,SW_MINIMIZE);return; }
         if(step==Hotkey&&inside(p,inputRect())) {listening=true;redraw();return;}
@@ -829,7 +832,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     Installer setup;setup.instance=instance;
     setup.scale=std::clamp(GetDpiForSystem()/96.0f,1.0f,2.5f);
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,setup.factory.GetAddressOf());
-    if(!setup.factory||!setup.initializeFonts()){CoUninitialize();return 3;}
+    if(!setup.factory||FAILED(createApprovedSettingsIcon(setup.factory.Get(),setup.settingsIcon.GetAddressOf()))||!setup.initializeFonts()){CoUninitialize();return 3;}
     setup.medium->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
     // Preview mode exercises the actual native UI without installing anything.
     if(commandLine && wcsstr(commandLine,L"--preview")) {
@@ -898,6 +901,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
+
 
 
 

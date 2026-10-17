@@ -2,6 +2,7 @@
 #define NOMINMAX
 #include "settings.h"
 #include "connect_ui.h"
+#include "approved_settings_icon.h"
 #include "bundled_font.h"
 #include <windowsx.h>
 #include <d2d1.h>
@@ -57,6 +58,7 @@ struct Settings {
     std::wstring status,notice;
     std::function<bool(UINT,UINT)> apply;
     ComPtr<ID2D1Factory> graphics;
+    ComPtr<ID2D1PathGeometry> settingsIcon;
     ComPtr<ID2D1HwndRenderTarget> target;
     ComPtr<ID2D1SolidColorBrush> brush;
     ComPtr<IDWriteFactory> fonts;
@@ -147,7 +149,9 @@ struct Settings {
             button(D2D1::RectF(28,332,182,368),tr(L"Отмена",L"Cancel"),false,8);
             button(D2D1::RectF(316,332,492,368),tr(L"Да, заменить",L"Yes, replace"),true,1);
         } else {
-            button(D2D1::RectF(300,98,492,134),tr(L"Тема и язык",L"Theme and language"),false,2);
+            brush->SetColor(color(hovered==2||pressed==2?ink():muted()));
+            drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),462,104,24);
+            if(focused==2){brush->SetColor(color(ink()));target->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(455,95,497,137),10,10),brush.Get(),2);}
             text(tr(L"ГОРЯЧАЯ КЛАВИША",L"KEYBOARD SHORTCUT"),D2D1::RectF(28,157,492,182),section.Get(),ink(),1);
             round(D2D1::RectF(28,190,492,226),8,light?0xF9F9F9:0x0A0A0A);
             round(D2D1::RectF(28,190,492,226),8,listening?muted():border(),false);
@@ -247,7 +251,7 @@ struct Settings {
             if(y>=264&&y<=300){if(x>=28&&x<=176)return 6;if(x>=184&&x<=332)return 7;}
             if(y>=332&&y<=368&&x>=28&&x<=210)return 8;
         } else {
-            if(!confirmation&&x>=300&&x<=492&&y>=98&&y<=134)return 2;
+            if(!confirmation&&x>=458&&x<=494&&y>=98&&y<=134)return 2;
             if(!confirmation&&x>=28&&x<=492&&y>=190&&y<=226)return 0;
             if(y>=332&&y<=368){if(x>=28&&x<=210)return 8;if(x>=316&&x<=492)return 1;}
         }
@@ -329,7 +333,7 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
     if(settings&&settings->hwnd){ShowWindow(settings->hwnd,SW_RESTORE);SetForegroundWindow(settings->hwnd);return;}
     if(!settings) {
         settings=std::make_unique<Settings>();settings->instance=instance;
-        if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,settings->graphics.GetAddressOf()))||!settings->initializeFonts()) {
+        if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,settings->graphics.GetAddressOf()))||FAILED(createApprovedSettingsIcon(settings->graphics.Get(),settings->settingsIcon.GetAddressOf()))||!settings->initializeFonts()) {
             settings.reset();MessageBoxW(nullptr,L"Не удалось открыть настройки Screenshot.",L"Screenshot",MB_OK|MB_ICONERROR);return;
         }
         settings->icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),IMAGE_ICON,32,32,0));
@@ -378,4 +382,5 @@ void showScreenshotCaptureNotice(bool saved) {
         settings->tr(L"Не удалось сохранить PNG в Pictures\\Screenshot. Проверьте доступ к папке.",L"Could not save PNG to Pictures\\Screenshot. Check folder permissions.");
     settings->focused=1;InvalidateRect(settings->hwnd,nullptr,FALSE);
 }
+
 

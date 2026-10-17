@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Screenshot VERSION 0.6.1 LANGUAGES CXX RC)
+project(Screenshot VERSION 0.6.2 LANGUAGES CXX RC)
 add_executable(Screenshot WIN32 src/main.cpp src/settings.cpp assets/screenshot.rc)
 target_compile_features(Screenshot PRIVATE cxx_std_17)
 target_compile_definitions(Screenshot PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
@@ -22,6 +22,7 @@ if(MSVC)
         target_link_options(${target} PRIVATE /OPT:REF /OPT:ICF)
     endforeach()
 endif()
+
 
 
 
