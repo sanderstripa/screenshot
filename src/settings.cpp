@@ -93,9 +93,12 @@ struct Settings {
     void line(float y) {
         brush->SetColor(color(border()));target->DrawLine(D2D1::Point2F(28,y),D2D1::Point2F(492,y),brush.Get(),1);
     }
-    void button(D2D1_RECT_F rect,const wchar_t* value) {
-        round(rect,14,light?0xFFFFFF:0x141414);round(rect,14,border(),false);
-        text(value,rect,body.Get(),ink(),0,true);
+    void button(D2D1_RECT_F rect,const wchar_t* value,bool primary=false) {
+        // CONNECT UI: reuse the current Screenshot palette, without introducing new colors.
+        const UINT surface=primary?ink():(light?0xF9F9F9:0x141414);
+        round(rect,8,surface);
+        if(!primary)round(rect,8,border(),false);
+        text(value,rect,body.Get(),primary?(light?0xF5F5F5:0x0A0A0A):ink(),0,true);
     }
     void theme() {
         BOOL dark=!light;DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));
@@ -130,7 +133,7 @@ struct Settings {
                 D2D1::RectF(28,232,492,302),body.Get(),muted());
             line(314);
             button(D2D1::RectF(28,332,182,368),L"Отмена");
-            button(D2D1::RectF(316,332,492,368),L"Да, заменить");
+            button(D2D1::RectF(316,332,492,368),L"Да, заменить",true);
         } else {
 
             text(L"ГОРЯЧАЯ КЛАВИША",D2D1::RectF(28,157,492,182),section.Get(),ink(),1);
@@ -142,7 +145,7 @@ struct Settings {
                 D2D1::RectF(28,249,492,302),hintFont.Get(),muted());
             line(314);
             button(D2D1::RectF(28,332,210,368),L"Открыть папку");
-            button(D2D1::RectF(340,332,492,368),L"Сохранить");
+            button(D2D1::RectF(340,332,492,368),L"Сохранить",true);
         }
         HRESULT result=target->EndDraw();
         if(result==D2DERR_RECREATE_TARGET){brush.Reset();target.Reset();}
