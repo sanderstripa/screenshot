@@ -93,7 +93,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.6.2-rc.1"
+          $tag = "v0.6.2-rc.2"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
@@ -104,4 +104,5 @@ jobs:
               --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+
 

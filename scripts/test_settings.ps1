@@ -23,7 +23,7 @@ public static class SettingsNative {
  [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hwnd,uint msg,IntPtr wp,IntPtr lp);
  public static int HitTest(IntPtr hwnd,int x,int y) {return SendMessage(hwnd,0x84,IntPtr.Zero,new IntPtr((x&65535)|((y&65535)<<16))).ToInt32();}
  public static void ChangeDpi(IntPtr hwnd,int dpi) {
-   Rect rect;GetWindowRect(hwnd,out rect);IntPtr memory=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(Rect)));
+   Rect rect;GetWindowRect(hwnd,out rect);rect.Left=0;rect.Top=0;IntPtr memory=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(Rect)));
    try {Marshal.StructureToPtr(rect,memory,false);SendMessage(hwnd,0x2e0,new IntPtr(dpi|(dpi<<16)),memory);}
    finally {Marshal.FreeHGlobal(memory);}
  }
@@ -180,7 +180,7 @@ try {
         Start-Sleep -Milliseconds 150
         $rect=[SettingsNative+Rect]::new();[SettingsNative]::GetWindowRect($hwnd,[ref]$rect)|Out-Null
         if(($rect.Right-$rect.Left) -ne [int](520*$dpi/96) -or ($rect.Bottom-$rect.Top) -ne [int][Math]::Truncate(382*$dpi/96)) {
-            throw "Settings layout dimensions incorrect at DPI $dpi"
+            throw "Settings layout dimensions incorrect at DPI ${dpi}: $($rect.Right-$rect.Left) x $($rect.Bottom-$rect.Top)"
         }
         $pixel=Shot $hwnd "settings-light-dpi-$dpi" ($dpi/96.0)
         if($pixel.R -ne 245){throw "Light rendering incorrect at DPI $dpi"}

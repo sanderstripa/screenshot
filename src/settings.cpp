@@ -53,6 +53,7 @@ struct Settings {
     HINSTANCE instance{};HWND hwnd{};float scale=1;
     UINT vk=VK_SNAPSHOT,mod=0,savedVK=VK_SNAPSHOT,savedMod=0;
     bool light=false,listening=false,confirmation=false,preview=false,appearance=false,english=false;
+    bool keyboardFocus=false;
     DWORD themeMode=2;int hovered=-1,pressed=-1,focused=-1;
     const wchar_t* tr(const wchar_t* ru,const wchar_t* en) const {return english?en:ru;}
     std::wstring status,notice;
@@ -103,7 +104,7 @@ struct Settings {
         const UINT surface=primary?ink():(light?0xF9F9F9:0x141414);
         round(rect,8,surface);
         if(!primary)round(rect,8,border(),false);
-        if(id>=0)ConnectUI::feedback(target.Get(),brush.Get(),rect,color(ink()),hovered==id,pressed==id,focused==id);
+        if(id>=0)ConnectUI::feedback(target.Get(),brush.Get(),rect,color(ink()),hovered==id,pressed==id,keyboardFocus&&focused==id);
         text(value,rect,body.Get(),primary?(light?0xF5F5F5:0x0A0A0A):ink(),0,true);
     }
     void theme() {
@@ -127,8 +128,8 @@ struct Settings {
         target->DrawLine(D2D1::Point2F(481,31),D2D1::Point2F(489,39),brush.Get(),1);
         target->DrawLine(D2D1::Point2F(489,31),D2D1::Point2F(481,39),brush.Get(),1);
         target->DrawLine(D2D1::Point2F(436,35),D2D1::Point2F(446,35),brush.Get(),1);
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(420,18,460,52),color(ink()),hovered==10,pressed==10,focused==10);
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(464,18,504,52),color(ink()),hovered==11,pressed==11,focused==11);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(420,18,460,52),color(ink()),hovered==10,pressed==10,keyboardFocus&&focused==10);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(464,18,504,52),color(ink()),hovered==11,pressed==11,keyboardFocus&&focused==11);
         line(80);
         text(tr(L"НАСТРОЙКИ",L"SETTINGS"),D2D1::RectF(28,98,296,128),title.Get(),ink(),1.8f);
         if(appearance) {
@@ -151,11 +152,11 @@ struct Settings {
         } else {
             brush->SetColor(color(hovered==2||pressed==2?ink():muted()));
             drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),462,104,24);
-            if(focused==2){brush->SetColor(color(ink()));target->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(455,95,497,137),10,10),brush.Get(),2);}
+            if(keyboardFocus&&focused==2){brush->SetColor(color(ink()));target->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(455,95,497,137),10,10),brush.Get(),2);}
             text(tr(L"ГОРЯЧАЯ КЛАВИША",L"KEYBOARD SHORTCUT"),D2D1::RectF(28,157,492,182),section.Get(),ink(),1);
             round(D2D1::RectF(28,190,492,226),8,light?0xF9F9F9:0x0A0A0A);
             round(D2D1::RectF(28,190,492,226),8,listening?muted():border(),false);
-            ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,190,492,226),color(ink()),hovered==0,pressed==0,focused==0);
+            ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,190,492,226),color(ink()),hovered==0,pressed==0,keyboardFocus&&focused==0);
             text(listening?tr(L"Нажмите сочетание…",L"Press a shortcut…"):shortcutName(vk,mod),
                 D2D1::RectF(42,190,478,226),body.Get(),ink(),0,true);
             text(status.empty()?(listening?tr(L"Esc — отмена",L"Esc — cancel"):tr(L"Нажмите поле, затем нужную клавишу или сочетание.",L"Click the field, then press a key or shortcut.")):status,
@@ -288,9 +289,9 @@ struct Settings {
         }
         InvalidateRect(hwnd,nullptr,FALSE);
     }
-    void click(float x,float y) {activate(hit(x,y));}
+    void click(float x,float y) {keyboardFocus=false;activate(hit(x,y));}
     void tab(bool reverse) {
-        listening=false;
+        listening=false;keyboardFocus=true;
         const int normal[]={2,0,8,1,10,11}, prefs[]={3,4,5,6,7,8,10,11}, consent[]={8,1,10,11}, modal[]={1,10,11};
         auto list=!notice.empty()?modal:(appearance?prefs:(confirmation?consent:normal));int count=!notice.empty()?3:(appearance?8:(confirmation?4:6)),index=-1;
         for(int i=0;i<count;i++)if(list[i]==focused)index=i;
@@ -347,7 +348,7 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
     s.themeMode=s.light?1:2;readDword(L"ThemeMode",s.themeMode);if(s.themeMode>2)s.themeMode=2;
     s.light=s.themeMode==0?ConnectUI::systemLight():s.themeMode==1;
     value=0;readDword(L"LanguageEN",value);s.english=value!=0;
-    s.appearance=false;s.focused=-1;s.hovered=-1;s.pressed=-1;
+    s.appearance=false;s.keyboardFocus=false;s.focused=-1;s.hovered=-1;s.pressed=-1;
     s.preview=previewTheme>=0;if(s.preview)s.light=previewTheme!=0;
     s.status=shortcutAvailable?L"":s.tr(L"Горячая клавиша недоступна. Выберите другую и сохраните.",L"Shortcut unavailable. Choose another and save.");
     s.scale=GetDpiForSystem()/96.0f;
@@ -382,5 +383,6 @@ void showScreenshotCaptureNotice(bool saved) {
         settings->tr(L"Не удалось сохранить PNG в Pictures\\Screenshot. Проверьте доступ к папке.",L"Could not save PNG to Pictures\\Screenshot. Check folder permissions.");
     settings->focused=1;InvalidateRect(settings->hwnd,nullptr,FALSE);
 }
+
 
 
