@@ -87,18 +87,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Reuse the exact native installer validated on Windows 11.
-          Invoke-WebRequest "https://github.com/${{ github.repository }}/releases/download/v0.6.0-rc.3/Screenshot-Setup.exe" -OutFile dist/Screenshot-Setup.exe
-          $testedHash = "4b50e4452066a0ca752c8e971b9a8dcdda7ec1d5ff2e6d45663b90bcfb0800c9"
-          if ((Get-FileHash dist/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $testedHash) { throw "Tested installer mismatch" }
-          $tag = "v0.6.0"
+          $tag = "v0.6.1-rc.1"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.6.0 — CONNECT UI v1" `
+              --title "Screenshot v0.6.1 candidate" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --latest
+              --prerelease
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
+

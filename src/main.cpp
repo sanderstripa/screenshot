@@ -602,14 +602,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     const bool settingsRequested=!background&&!captureNow;
     HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\Screenshot.SanderStripa.Singleton");
     if (!mutex || GetLastError() == ERROR_ALREADY_EXISTS) {
+        bool delivered=!settingsRequested;
         if(mutex&&settingsRequested) {
             HWND existing=nullptr;
             for(int attempt=0;attempt<20&&!existing;++attempt){existing=FindWindowW(L"ScreenshotController",L"Screenshot");if(!existing)Sleep(50);}
-            if(existing){DWORD pid=0;GetWindowThreadProcessId(existing,&pid);AllowSetForegroundWindow(pid);PostMessageW(existing,WM_SCREENSHOT_SETTINGS,0,0);}
+            if(existing){DWORD pid=0;GetWindowThreadProcessId(existing,&pid);AllowSetForegroundWindow(pid);delivered=PostMessageW(existing,WM_SCREENSHOT_SETTINGS,0,0)!=FALSE;}
         }
         if (mutex) CloseHandle(mutex);
         CoUninitialize();
-        return 0;
+        return delivered?0:19;
     }
     App current{};
     current.instance = instance;
@@ -629,6 +630,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR commandLine, int) {
     current.controller = CreateWindowExW(WS_EX_TOOLWINDOW, L"ScreenshotController", L"Screenshot",
         WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, instance, nullptr);
     if (!current.controller) {CloseHandle(mutex);CoUninitialize();return 3;}
+    // A setup started as administrator can leave the worker elevated. Allow only
+    // the argument-free "open settings" request from an ordinary Start menu launch.
+    // No shutdown, input, clipboard or capture messages are admitted through UIPI.
+    CHANGEFILTERSTRUCT settingsFilter{sizeof(settingsFilter)};
+    ChangeWindowMessageFilterEx(current.controller,WM_SCREENSHOT_SETTINGS,MSGFLT_ALLOW,&settingsFilter);
     bool hotkeyRegistered=RegisterHotKey(current.controller, HOTKEY_ID,
         captureNow ? MOD_NOREPEAT : hotkeyModifiers | MOD_NOREPEAT,
         captureNow ? VK_F24 : hotkeyVK)!=FALSE;

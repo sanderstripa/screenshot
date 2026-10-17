@@ -266,7 +266,7 @@ struct Installer {
             label(note,30,246,580,32,regular.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
             label(tr(L"PNG → Pictures\\Screenshot + буфер обмена",L"PNG to Pictures\\Screenshot + clipboard"),30,278,580,28,
                 smallText.Get(),muted,DWRITE_TEXT_ALIGNMENT_CENTER);
-            button(primaryRect(step),tr(L"Закрыть",L"Close"));
+            button(primaryRect(step),tr(L"Открыть Screenshot",L"Open Screenshot"));
         }
     }
     void paint() {
@@ -308,7 +308,7 @@ struct Installer {
 
             if(step==Welcome&&!preferences)target->DrawBitmap(artwork.Get(),D2D1::RectF(254,83,386,215));
         }
-        if(step==Welcome&&!preferences)ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,338,172,374),ink(),hovered==8,pressed==8,focused==8);
+        if(step==Welcome&&!preferences&&focused==8){outline(D2D1::RectF(28,338,172,374),8,ink(),2);}
         if(!notice.empty()) {
             fill(D2D1::RectF(0,60,W,H),surface());
             rounded(D2D1::RectF(28,84,612,370),8,surface());outline(D2D1::RectF(28,84,612,370),8,edge());
@@ -352,13 +352,13 @@ struct Installer {
         }
         return false;
     }
-    bool launchBackground() {
+    bool launchBackground(bool settings=false) {
         wchar_t local[MAX_PATH]{};
         if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)))return false;
         std::wstring file=std::wstring(local)+L"\\Programs\\Screenshot\\Screenshot.exe";
         STARTUPINFOW si{sizeof(si)};
         PROCESS_INFORMATION pi{};
-        std::wstring cmd=L"\""+file+L"\" --background";
+        std::wstring cmd=L"\""+file+(settings?L"\" --settings":L"\" --background");
         if(CreateProcessW(file.c_str(),cmd.data(),nullptr,nullptr,FALSE,0,
             nullptr,nullptr,&si,&pi)) {
             CloseHandle(pi.hThread);
@@ -450,7 +450,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.0") &&
+            writeString(key,L"DisplayVersion",L"0.6.1") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -656,7 +656,7 @@ struct Installer {
                 else showNotice(tr(L"Эта клавиша занята другим приложением.\nВыберите другую клавишу.",L"This shortcut is used by another app.\nChoose another key."));
                 break;
             case Confirm:activateHotkey();break;
-            case Ready:DestroyWindow(hwnd);break;
+            case Ready:if(launchBackground(true))DestroyWindow(hwnd);else showNotice(tr(L"Не удалось открыть Screenshot. Запустите его из меню Пуск.",L"Could not open Screenshot. Open it from the Start menu."));break;
         }
     }
 };
@@ -841,6 +841,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
+
 
 
 
