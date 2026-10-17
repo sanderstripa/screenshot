@@ -76,9 +76,9 @@ struct Settings {
         if(icon)DestroyIcon(icon);
     }
     D2D1_COLOR_F color(UINT rgb) {return D2D1::ColorF(rgb);}
-    UINT ink() const {return light?0x111111:0xF4F4F4;}
-    UINT muted() const {return light?0x75797F:0x8B8E94;}
-    UINT border() const {return light?0xD9DADC:0x333639;}
+    UINT ink() const {return ConnectUI::ink(light);}
+    UINT muted() const {return ConnectUI::muted(light);}
+    UINT border() const {return ConnectUI::line(light);}
     void text(const std::wstring& value,D2D1_RECT_F rect,IDWriteTextFormat* font,
         UINT rgb,float spacing=0,bool center=false) {
         ComPtr<IDWriteTextLayout> layout;
@@ -100,12 +100,27 @@ struct Settings {
         brush->SetColor(color(border()));target->DrawLine(D2D1::Point2F(28,y),D2D1::Point2F(492,y),brush.Get(),1);
     }
     void button(D2D1_RECT_F rect,const wchar_t* value,bool primary=false,int id=-1) {
-        // CONNECT UI: reuse the current Screenshot palette, without introducing new colors.
-        const UINT surface=primary?ink():(light?0xF9F9F9:0x141414);
+        const UINT surface=primary?ConnectUI::accent(light):ConnectUI::hover(light);
         round(rect,8,surface);
         if(!primary)round(rect,8,border(),false);
         if(id>=0)ConnectUI::feedback(target.Get(),brush.Get(),rect,color(ink()),hovered==id,pressed==id,keyboardFocus&&focused==id);
-        text(value,rect,body.Get(),primary?(light?0xF5F5F5:0x0A0A0A):ink(),0,true);
+        text(value,rect,body.Get(),primary?ConnectUI::inverse(light):ink(),0,true);
+    }
+    void choice(D2D1_RECT_F rect,const wchar_t* value,bool selected,int id,int icon=-1) {
+        round(rect,8,selected?ConnectUI::hover(light):ConnectUI::background(light));
+        round(rect,8,selected&&icon>=0?muted():border(),false);
+        UINT foreground=selected?ink():muted();
+        if(icon>=0) {
+            ComPtr<IDWriteTextLayout> layout;DWRITE_TEXT_METRICS metrics{};
+            fonts->CreateTextLayout(value,static_cast<UINT32>(wcslen(value)),hintFont.Get(),200,32,&layout);
+            if(layout)layout->GetMetrics(&metrics);
+            float left=rect.left+((rect.right-rect.left)-metrics.width-17)/2;
+            brush->SetColor(color(foreground));
+            ConnectUI::drawIcon(target.Get(),brush.Get(),static_cast<ConnectUI::Icon>(icon),left,rect.top+10,12);
+            text(value,D2D1::RectF(left+17,rect.top+9,rect.right,rect.bottom),hintFont.Get(),foreground,0,false);
+            // Vertically center without changing the neutral choice typography.
+        } else text(value,rect,hintFont.Get(),foreground,0,true);
+        if(keyboardFocus&&focused==id)ConnectUI::feedback(target.Get(),brush.Get(),rect,color(muted()),false,false,true);
     }
     void theme() {
         BOOL dark=!light;DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));
@@ -122,7 +137,7 @@ struct Settings {
             target->CreateSolidColorBrush(color(ink()),&brush);
         }
         target->SetDpi(96*scale,96*scale);target->BeginDraw();
-        target->Clear(color(light?0xF5F5F5:0x0A0A0A));
+        target->Clear(color(ConnectUI::background(light)));
         text(L"SCREENSHOT.",D2D1::RectF(28,27,400,58),title.Get(),ink(),1.8f);
         brush->SetColor(color(muted()));
         target->DrawLine(D2D1::Point2F(481,31),D2D1::Point2F(489,39),brush.Get(),1);
@@ -131,16 +146,18 @@ struct Settings {
         ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(420,18,460,52),color(ink()),hovered==10,pressed==10,keyboardFocus&&focused==10);
         ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(464,18,504,52),color(ink()),hovered==11,pressed==11,keyboardFocus&&focused==11);
         line(80);
-        text(tr(L"НАСТРОЙКИ",L"SETTINGS"),D2D1::RectF(28,98,296,128),title.Get(),ink(),1.8f);
+        text(tr(L"НАСТРОЙКИ",L"SETTINGS"),D2D1::RectF(appearance?55.0f:28.0f,98,296,128),title.Get(),ink(),1.8f);
         if(appearance) {
-            text(tr(L"ТЕМА",L"THEME"),D2D1::RectF(28,148,492,170),section.Get(),ink(),1);
-            button(D2D1::RectF(28,176,176,212),tr(L"Система",L"System"),themeMode==0,3);
-            button(D2D1::RectF(184,176,332,212),tr(L"Светлая",L"Light"),themeMode==1,4);
-            button(D2D1::RectF(340,176,488,212),tr(L"Тёмная",L"Dark"),themeMode==2,5);
-            text(tr(L"ЯЗЫК",L"LANGUAGE"),D2D1::RectF(28,236,492,258),section.Get(),ink(),1);
-            button(D2D1::RectF(28,264,176,300),L"RU",!english,6);
-            button(D2D1::RectF(184,264,332,300),L"EN",english,7);
-            line(314);button(D2D1::RectF(28,332,210,368),tr(L"Назад",L"Back"),false,8);
+            brush->SetColor(color(muted()));ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Back,28,103,17);
+            line(138);
+            brush->SetColor(color(muted()));ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Palette,28,153,17);
+            text(tr(L"ВНЕШНИЙ ВИД",L"APPEARANCE"),D2D1::RectF(55,155,400,176),hintFont.Get(),ink(),1.2f);
+            choice(D2D1::RectF(424,148,456,176),L"RU",!english,6);
+            choice(D2D1::RectF(460,148,492,176),L"EN",english,7);
+            choice(D2D1::RectF(28,184,180,216),tr(L"Система",L"System"),themeMode==0,3,0);
+            choice(D2D1::RectF(184,184,336,216),tr(L"Светлая",L"Light"),themeMode==1,4,1);
+            choice(D2D1::RectF(340,184,492,216),tr(L"Тёмная",L"Dark"),themeMode==2,5,2);
+            line(232);
         } else if(confirmation) {
             text(L"PRINT SCREEN",D2D1::RectF(28,146,492,175),section.Get(),ink(),1);
             text(tr(L"Заменить системное действие клавиши?",L"Replace the Windows action?"),D2D1::RectF(28,186,492,221),body.Get(),ink());
@@ -154,7 +171,7 @@ struct Settings {
             drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),462,104,24);
             if(keyboardFocus&&focused==2){brush->SetColor(color(ink()));target->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(455,95,497,137),10,10),brush.Get(),2);}
             text(tr(L"ГОРЯЧАЯ КЛАВИША",L"KEYBOARD SHORTCUT"),D2D1::RectF(28,157,492,182),section.Get(),ink(),1);
-            round(D2D1::RectF(28,190,492,226),8,light?0xF9F9F9:0x0A0A0A);
+            round(D2D1::RectF(28,190,492,226),8,ConnectUI::background(light));
             round(D2D1::RectF(28,190,492,226),8,listening?muted():border(),false);
             ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,190,492,226),color(ink()),hovered==0,pressed==0,keyboardFocus&&focused==0);
             text(listening?tr(L"Нажмите сочетание…",L"Press a shortcut…"):shortcutName(vk,mod),
@@ -166,7 +183,7 @@ struct Settings {
             button(D2D1::RectF(340,332,492,368),tr(L"Сохранить",L"Save"),true,1);
         }
         if(!notice.empty()) {
-            round(D2D1::RectF(24,94,496,372),8,light?0xF5F5F5:0x0A0A0A);
+            round(D2D1::RectF(24,94,496,372),8,ConnectUI::background(light));
             text(tr(L"УВЕДОМЛЕНИЕ",L"NOTICE"),D2D1::RectF(28,110,492,140),title.Get(),ink());
             text(L"!",D2D1::RectF(28,164,48,192),body.Get(),ink());
             text(notice,D2D1::RectF(56,164,492,302),body.Get(),muted());
@@ -248,9 +265,9 @@ struct Settings {
         if(y>=18&&y<=52){if(x>=464)return 11;if(x>=420&&x<=460)return 10;}
         if(!notice.empty())return y>=332&&y<=368&&x>=340&&x<=492?1:-1;
         if(appearance) {
-            if(y>=176&&y<=212){if(x>=28&&x<=176)return 3;if(x>=184&&x<=332)return 4;if(x>=340&&x<=488)return 5;}
-            if(y>=264&&y<=300){if(x>=28&&x<=176)return 6;if(x>=184&&x<=332)return 7;}
-            if(y>=332&&y<=368&&x>=28&&x<=210)return 8;
+            if(x>=24&&x<=50&&y>=94&&y<=134)return 8;
+            if(y>=184&&y<=216){if(x>=28&&x<=180)return 3;if(x>=184&&x<=336)return 4;if(x>=340&&x<=492)return 5;}
+            if(y>=148&&y<=176){if(x>=424&&x<=456)return 6;if(x>=460&&x<=492)return 7;}
         } else {
             if(!confirmation&&x>=458&&x<=494&&y>=98&&y<=134)return 2;
             if(!confirmation&&x>=28&&x<=492&&y>=190&&y<=226)return 0;
@@ -383,6 +400,7 @@ void showScreenshotCaptureNotice(bool saved) {
         settings->tr(L"Не удалось сохранить PNG в Pictures\\Screenshot. Проверьте доступ к папке.",L"Could not save PNG to Pictures\\Screenshot. Check folder permissions.");
     settings->focused=1;InvalidateRect(settings->hwnd,nullptr,FALSE);
 }
+
 
 
 

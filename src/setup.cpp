@@ -72,10 +72,10 @@ struct Installer {
     int hovered=-1,pressed=-1,focused=-1; DWORD themeMode=2;std::wstring notice;
     void showNotice(const wchar_t* message) {notice=message;focused=20;redraw();}
     const wchar_t* tr(const wchar_t* ru,const wchar_t* en) const {return english?en:ru;}
-    D2D1_COLOR_F ink() const {return D2D1::ColorF(light?0x111111:0xF4F4F4);}
-    D2D1_COLOR_F mutedInk() const {return D2D1::ColorF(light?0x75797F:0x8B8E94);}
-    D2D1_COLOR_F edge() const {return D2D1::ColorF(light?0xD9DADC:0x333639);}
-    D2D1_COLOR_F surface() const {return D2D1::ColorF(light?0xF5F5F5:0x0A0A0A);}
+    D2D1_COLOR_F ink() const {return D2D1::ColorF(ConnectUI::ink(light));}
+    D2D1_COLOR_F mutedInk() const {return D2D1::ColorF(ConnectUI::muted(light));}
+    D2D1_COLOR_F edge() const {return D2D1::ColorF(ConnectUI::line(light));}
+    D2D1_COLOR_F surface() const {return D2D1::ColorF(ConnectUI::background(light));}
     void theme() {BOOL dark=!light;DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));COLORREF border=light?RGB(218,218,218):RGB(45,47,50);DwmSetWindowAttribute(hwnd,DWMWA_BORDER_COLOR,&border,sizeof(border));redraw();}
     bool needsRelogin = false;
     bool hoverPrimary = false, hoverSecondary = false, hoverInput = false;
@@ -116,7 +116,7 @@ struct Installer {
                 DWRITE_FONT_STRETCH_NORMAL,size,L"ru-ru",&font));
         };
         return create(13,DWRITE_FONT_WEIGHT_NORMAL,regular)&&create(16,DWRITE_FONT_WEIGHT_MEDIUM,medium)
-            &&create(12,DWRITE_FONT_WEIGHT_NORMAL,smallText)&&create(25,DWRITE_FONT_WEIGHT_MEDIUM,headline);
+            &&create(11,DWRITE_FONT_WEIGHT_NORMAL,smallText)&&create(25,DWRITE_FONT_WEIGHT_MEDIUM,headline);
     }
 
     void fill(D2D1_RECT_F rect,D2D1_COLOR_F c) {
@@ -144,7 +144,7 @@ struct Installer {
         label(L"SCREENSHOT.",28,17,300,32,medium.Get(),ink());
         if(step==Welcome&&!preferences&&notice.empty()) {
             brush->SetColor(hovered==8||pressed==8?ink():mutedInk());
-            drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),34,344,24);
+            drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),34,329,24);
         }
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
         ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(534,10,574,44),ink(),hovered==10,pressed==10,focused==10);
@@ -155,22 +155,38 @@ struct Installer {
         target->DrawLine(D2D1::Point2F(608,20),D2D1::Point2F(598,30),brush.Get(),1.25f);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
-        rounded(rect,8,ink());
+        rounded(rect,8,D2D1::ColorF(ConnectUI::accent(light)));
         if(!active)outline(rect,8,edge());
         ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==(notice.empty()?1:20),pressed==(notice.empty()?1:20),focused==(notice.empty()?1:20));
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
-            surface(),DWRITE_TEXT_ALIGNMENT_CENTER);
+            D2D1::ColorF(ConnectUI::inverse(light)),DWRITE_TEXT_ALIGNMENT_CENTER);
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
-        rounded(rect,8,D2D1::ColorF(light?0xF9F9F9:0x141414));
+        rounded(rect,8,D2D1::ColorF(ConnectUI::hover(light)));
         outline(rect,8,edge());
         ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==2,pressed==2,focused==2);
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
             ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+    }
+    void choice(D2D1_RECT_F rect,const wchar_t* value,bool selected,int id,int icon=-1) {
+        rounded(rect,8,selected?D2D1::ColorF(ConnectUI::hover(light)):surface());
+        outline(rect,8,selected&&icon>=0?mutedInk():edge());
+        auto foreground=selected?ink():mutedInk();
+        smallText->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        if(icon>=0) {
+            ComPtr<IDWriteTextLayout> layout;DWRITE_TEXT_METRICS metrics{};
+            fonts->CreateTextLayout(value,static_cast<UINT32>(wcslen(value)),smallText.Get(),200,32,&layout);
+            if(layout)layout->GetMetrics(&metrics);
+            float left=rect.left+((rect.right-rect.left)-metrics.width-17)/2;
+            brush->SetColor(foreground);ConnectUI::drawIcon(target.Get(),brush.Get(),static_cast<ConnectUI::Icon>(icon),left,rect.top+10,12);
+            label(value,left+17,rect.top,metrics.width+1,rect.bottom-rect.top,smallText.Get(),foreground);
+        } else label(value,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,smallText.Get(),foreground,DWRITE_TEXT_ALIGNMENT_CENTER);
+        smallText->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        if(focused==id)ConnectUI::feedback(target.Get(),brush.Get(),rect,mutedInk(),false,false,true);
     }
     void ring(float x,float y,bool warning=false,bool green=false) {
         auto color=ink();
@@ -190,30 +206,17 @@ struct Installer {
         const auto white=ink();
         const auto muted=mutedInk();
         if(preferences) {
-            label(tr(L"НАСТРОЙКИ",L"SETTINGS"),28,80,550,36,headline.Get(),white);
-            label(tr(L"Тема",L"Theme"),28,136,550,24,regular.Get(),muted);
+            brush->SetColor(mutedInk());ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Back,28,84,17);
+            label(tr(L"НАСТРОЙКИ",L"SETTINGS"),55,80,550,36,medium.Get(),white);
+            brush->SetColor(edge());target->DrawLine(D2D1::Point2F(28,124),D2D1::Point2F(612,124),brush.Get());
+            brush->SetColor(mutedInk());ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Palette,28,145,17);
+            label(tr(L"ВНЕШНИЙ ВИД",L"APPEARANCE"),55,147,400,24,smallText.Get(),white);
+            choice(D2D1::RectF(544,140,576,168),L"RU",!english,6);
+            choice(D2D1::RectF(580,140,612,168),L"EN",english,7);
             const wchar_t* options[]={tr(L"Система",L"System"),tr(L"Светлая",L"Light"),tr(L"Тёмная",L"Dark")};
-            for(int i=0;i<3;i++) {
-                auto rect=D2D1::RectF(28+196.0f*i,168,216+196.0f*i,204);
-                if(themeMode==static_cast<DWORD>(i))rounded(rect,8,ink());
-                else {rounded(rect,8,D2D1::ColorF(light?0xF9F9F9:0x141414));outline(rect,8,edge());}
-                ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==3+i,pressed==3+i,focused==3+i);
-                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-                label(options[i],rect.left,rect.top,188,36,regular.Get(),themeMode==static_cast<DWORD>(i)?surface():ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
-                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-            }
-            label(tr(L"Язык",L"Language"),28,228,550,24,regular.Get(),muted);
-            for(int i=0;i<2;i++) {
-                auto rect=D2D1::RectF(28+196.0f*i,260,216+196.0f*i,296);
-                bool selected=english==(i!=0);
-                rounded(rect,8,selected?ink():D2D1::ColorF(light?0xF9F9F9:0x141414));
-                if(!selected)outline(rect,8,edge());
-                ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==6+i,pressed==6+i,focused==6+i);
-                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-                label(i?L"EN":L"RU",rect.left,rect.top,188,36,regular.Get(),selected?surface():ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
-                regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
-            }
-            secondaryButton(D2D1::RectF(28,332,176,368),tr(L"Назад",L"Back"));return;
+            for(int i=0;i<3;i++)choice(D2D1::RectF(28+196.0f*i,176,220+196.0f*i,208),options[i],themeMode==static_cast<DWORD>(i),3+i,i);
+            brush->SetColor(edge());target->DrawLine(D2D1::Point2F(28,224),D2D1::Point2F(612,224),brush.Get());
+            return;
         }
         if(step==Welcome) {
             label(L"Screenshot",40,231,560,50,headline.Get(),white,DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -315,7 +318,7 @@ struct Installer {
 
             if(step==Welcome&&!preferences)target->DrawBitmap(artwork.Get(),D2D1::RectF(254,83,386,215));
         }
-        if(step==Welcome&&!preferences&&focused==8){outline(D2D1::RectF(28,338,64,374),8,ink(),2);}
+        if(step==Welcome&&!preferences&&focused==8){outline(D2D1::RectF(28,323,64,359),8,ink(),2);}
         if(!notice.empty()) {
             fill(D2D1::RectF(0,60,W,H),surface());
             rounded(D2D1::RectF(28,84,612,370),8,surface());outline(D2D1::RectF(28,84,612,370),8,edge());
@@ -510,7 +513,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.2") &&
+            writeString(key,L"DisplayVersion",L"0.6.3") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -646,11 +649,12 @@ struct Installer {
         if(p.y<47&&p.x>530)return p.x>574?11:10;
         if(!notice.empty())return inside(p,D2D1::RectF(436,310,588,346))?20:-1;
         if(preferences) {
-            for(int i=0;i<3;i++)if(inside(p,D2D1::RectF(28+196.0f*i,168,216+196.0f*i,204)))return 3+i;
-            for(int i=0;i<2;i++)if(inside(p,D2D1::RectF(28+196.0f*i,260,216+196.0f*i,296)))return 6+i;
-            return inside(p,D2D1::RectF(28,332,176,368))?2:-1;
+            for(int i=0;i<3;i++)if(inside(p,D2D1::RectF(28+196.0f*i,176,220+196.0f*i,208)))return 3+i;
+            if(inside(p,D2D1::RectF(544,140,576,168)))return 6;
+            if(inside(p,D2D1::RectF(580,140,612,168)))return 7;
+            return inside(p,D2D1::RectF(24,76,52,112))?2:-1;
         }
-        if(step==Welcome&&inside(p,D2D1::RectF(28,338,64,374)))return 8;
+        if(step==Welcome&&inside(p,D2D1::RectF(28,323,64,359)))return 8;
         if(step==Hotkey&&inside(p,inputRect()))return 0;
         if(step==Confirm&&inside(p,secondaryRect()))return 2;
         if(step==Installing)return result.load()==1&&inside(p,D2D1::RectF(430,345,602,390))?1:-1;
@@ -674,10 +678,10 @@ struct Installer {
         if(focused==10)p={550,26};else if(focused==11)p={600,26};
         else if(focused==20)p={510,328};
         else if(preferences) {
-            if(focused>=3&&focused<=5)p={120+196*(focused-3),186};
-            else if(focused>=6&&focused<=7)p={120+196*(focused-6),278};
-            else p={100,350};
-        } else if(focused==0)p={120,216};else if(focused==8)p={46,356};
+            if(focused>=3&&focused<=5)p={120+196*(focused-3),192};
+            else if(focused>=6&&focused<=7)p={560+36*(focused-6),154};
+            else p={38,94};
+        } else if(focused==0)p={120,216};else if(focused==8)p={46,341};
         else {auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}
         nextClick(p);
     }
@@ -688,13 +692,12 @@ struct Installer {
         }
         if(!notice.empty()){if(inside(p,D2D1::RectF(436,310,588,346))){notice.clear();focused=-1;redraw();}return;}
         if(preferences) {
-            if(p.y>=168&&p.y<=204&&p.x>=28&&p.x<=608) {
-                int column=(p.x-28)/196;if(column<3&&(p.x-28)%196<=188){themeMode=column;light=column==0?ConnectUI::systemLight():column==1;theme();}
-            } else if(p.y>=260&&p.y<=296&&p.x>=28&&p.x<=412){english=p.x>=224;redraw();}
-            else if(inside(p,D2D1::RectF(28,332,176,368))){preferences=false;redraw();}
+            if(focused>=3&&focused<=5){themeMode=focused-3;light=themeMode==0?ConnectUI::systemLight():themeMode==1;theme();}
+            else if(focused==6||focused==7){english=focused==7;redraw();}
+            else if(focused==2){preferences=false;redraw();}
             return;
         }
-        if(step==Welcome&&p.x>=28&&p.x<=64&&p.y>=338&&p.y<=374){preferences=true;focused=3;redraw();return;}
+        if(step==Welcome&&p.x>=28&&p.x<=64&&p.y>=323&&p.y<=359){preferences=true;focused=3;redraw();return;}
         if(p.y<47 && p.x>574) { SendMessageW(hwnd,WM_CLOSE,0,0);return; }
         if(p.y<47 && p.x>530) { ShowWindow(hwnd,SW_MINIMIZE);return; }
         if(step==Hotkey&&inside(p,inputRect())) {listening=true;redraw();return;}
@@ -901,6 +904,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     CoUninitialize();
     return 0;
 }
+
+
 
 
 
