@@ -1,11 +1,10 @@
-# Screenshot v0.6.1 — restore application opening after installation
+# Screenshot v0.6.2 — approved CONNECT settings icon #8
 
-- Fixed the confirmed Start menu failure when Screenshot was running elevated: ordinary launches received Windows error 5 when sending the open-settings request. The elevated controller now permits only that argument-free message across UIPI.
-- An administrator-run installer delegates app startup to the existing desktop Shell so Screenshot runs with ordinary user rights.
-- The final wizard button opens the installed application instead of only closing the installer.
-- Removed the filled hover/press background from the installer's settings action. The original approved gear #8 is pending the user's source image; no substitute icon is used.
-- Montserrat, both palettes, window dimensions, capture behavior and existing hotkey settings are retained.
+- Replaced settings text actions in the installer and app with the exact approved `CONNECT-settings-08.svg` from `sanderstripa/connect`, branch `connect-ui-system-v1-reference`.
+- No background tile or mouse-focus outline. Keyboard navigation retains its focus indicator.
+- The original SVG is retained byte for byte (Git blob `c7a6eedf689fdb759133b35e487c35e4505af236`). Its curves, arcs, circle, fill rule and viewBox are converted directly to native Direct2D geometry and checked by CI.
+- Existing startup permission fixes, Montserrat, palettes, dimensions, capture behavior and shortcuts are preserved.
 
-Verified on Windows 11 build 26100: update over an elevated previous installation, ordinary Start menu → elevated worker, elevated wizard → ordinary worker, and finish → visible app settings. Existing settings, hotkey conflicts, Print Screen cancellation, five DPI scales, wizard notices, keyboard/window controls and PNG disk/clipboard regressions passed.
+Tested on Windows: actual icon clicks, both themes, settings persistence and shortcut reassignment, 100–250% scaling, installer update/settings flow, window controls and PNG disk/clipboard output.
 
-Tested installer SHA-256: `43f9ca69c5adbca1650e2089348bf02f9820fba15419438891dc33e4fc9c0e4a`.
+Exact tested installer SHA-256: `06c0583cddc98402152ce8abd0b2d90e30bd07cc29bf96010ddfa7fa2652491b`.

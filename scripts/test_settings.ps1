@@ -65,7 +65,7 @@ function Stop-App {
 function Find-Settings {
     for($i=0;$i -lt 60;$i++){
         $hwnd=[SettingsNative]::FindWindow('ScreenshotSettings',$null)
-        if($hwnd -ne [IntPtr]::Zero -and [SettingsNative]::IsWindowVisible($hwnd)){return $hwnd}
+        if($hwnd -ne [IntPtr]::Zero -and [SettingsNative]::IsWindowVisible($hwnd)){[SettingsNative]::SetWindowPos($hwnd,[IntPtr]1,0,0,0,0,0x13)|Out-Null;return $hwnd}
         Start-Sleep -Milliseconds 100
     }
     $found=[SettingsNative]::FindWindow('ScreenshotSettings',$null)

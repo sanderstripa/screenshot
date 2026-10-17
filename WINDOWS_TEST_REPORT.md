@@ -1,5 +1,11 @@
 # Windows 11 verification — 2026-10-18
 
+## v0.6.2 — approved SVG #8
+
+Final candidate v0.6.2-rc.2 SHA-256: `06c0583cddc98402152ce8abd0b2d90e30bd07cc29bf96010ddfa7fa2652491b`. Final release reuses these exact bytes.
+
+PASS original SVG Git blob equality with the CONNECT reference branch; PASS reproducible native geometry generation checked in CI. Actual native light/dark captures show approved #8 without a background tile or mouse-focus box in both installer and app. PASS settings icon clicks, persisted theme/language, live shortcut reassignment/conflict rejection, Print Screen cancellation, keyboard/window controls, update and PNG disk/clipboard regression. Settings passed all five scales from 100–250%; synthetic DPI tests anchor the fixture on the primary display to avoid crossing monitors. Test windows are placed behind the foreground application; native PrintWindow captures exercise the actual UI without requiring it to cover the user's desktop.
+
 ## v0.6.1 — confirmed launch-permissions regression
 
 Observed the user's running v0.6.0 worker with TokenElevation=1. An ordinary launch exited without opening a window; PostMessage(WM_SCREENSHOT_SETTINGS) returned false and GetLastError=5 (access denied). This cross-integrity case was missing from the earlier tests.

@@ -50,7 +50,7 @@ function Click($hwnd,$x,$y) {
     Start-Sleep -Milliseconds 250
 }
 function Shot($hwnd,$name) {
-    $rect=[SettingsNative+Rect]::new();[SettingsNative]::GetWindowRect($hwnd,[ref]$rect)|Out-Null
+    $rect=[SettingsNative+Rect]::new();if(![SettingsNative]::GetWindowRect($hwnd,[ref]$rect)){throw "Test window disappeared before screenshot $name"}
     $bitmap=[Drawing.Bitmap]::new($rect.Right-$rect.Left,$rect.Bottom-$rect.Top)
     $graphics=[Drawing.Graphics]::FromImage($bitmap);$dc=$graphics.GetHdc()
     try {[SettingsNative]::PrintWindow($hwnd,$dc,2)|Out-Null}finally {$graphics.ReleaseHdc($dc);$graphics.Dispose()}
@@ -66,7 +66,7 @@ try {
         if($hwnd -ne [IntPtr]::Zero){break};Start-Sleep -Milliseconds 50
     }
     if($hwnd -eq [IntPtr]::Zero){throw 'Installer window missing'}
-    [SettingsNative]::ShowWindow($hwnd,9)|Out-Null;Start-Sleep -Milliseconds 400
+    [SettingsNative]::ShowWindow($hwnd,4)|Out-Null;[SettingsNative]::SetWindowPos($hwnd,[IntPtr]1,0,0,0,0,0x13)|Out-Null;Start-Sleep -Milliseconds 400
     $welcome=Shot $hwnd 'welcome-dark-ru'
     Click $hwnd 46 356
     $ru=Shot $hwnd 'preferences-dark-ru'
