@@ -121,3 +121,6 @@ PASS exact SVG comparison against locked VPN npm package 0.468.0; 13px rendering
 
 ## v0.6.5 — window placement
 PASS scripts/test_window_position.ps1 on installed Windows app: move persists immediately; close/reopen preserves position; full process restart after minimize preserves normal position; unavailable monitor coordinates recover onto desktop. Test restores original position. Physical PC reboot not performed. Tested candidate SHA-256 fc313115396dd9299aec4fac0a3560bc2a3acf9a391a9a96a03b376758933dda; stable reuses these bytes.
+
+## v0.6.6 — caption buttons without fills
+PASS actual native window pixel checks: app/setup x light/dark x minimize/close x normal/hover/pressed. Screenshots reviewed. Candidate SHA-256 9216d00e98d2054a2381f90ea114f3cc57ae90e08e9a62914a3dbb0ed767e7ff; stable reuses tested bytes.

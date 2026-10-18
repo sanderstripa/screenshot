@@ -1,10 +1,9 @@
-# Screenshot v0.6.5 — remember window position
+# Screenshot v0.6.6 — flat window controls
 
-- The application remembers where you move its settings window and restores that position on the next launch, including after a full process restart.
-- Moving saves immediately; minimizing does not overwrite the normal position.
-- If a saved monitor is unavailable, the window returns to a visible work area. Window dimensions and current monitor DPI remain respected.
-- No appearance, capture, shortcut or installer behavior changed.
+- Removed minimize/close button backgrounds from both application and installer in light and dark themes, including hover and pressed states.
+- Pointer feedback changes only the symbol color. Keyboard navigation retains its focus outline.
+- Existing palette, dimensions, settings gear, capture and position persistence remain unchanged.
 
-Verified on Windows: move persistence, close/reopen, full worker restart after minimize, and recovery from an unavailable monitor position. Installation/update and PNG checks passed in Windows CI. A physical PC reboot was not performed.
+Windows verification: actual installed application and installer, both themes, both buttons, normal/hover/pressed states. Native rendered pixels confirmed no background fill; screenshots reviewed. Windows CI installation/update and PNG checks passed.
 
-Tested installer SHA-256: fc313115396dd9299aec4fac0a3560bc2a3acf9a391a9a96a03b376758933dda.
+Tested installer SHA-256: 9216d00e98d2054a2381f90ea114f3cc57ae90e08e9a62914a3dbb0ed767e7ff.
