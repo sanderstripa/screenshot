@@ -83,13 +83,15 @@ struct Installer {
     bool needsRelogin = false;
     bool desktopShortcut=true,startMenuShortcut=true,openAfter=true;
     std::wstring destination;
-    HWND pathEdit{};HFONT pathFont{};HBRUSH pathBrush{};int pathDpi=-1;bool pathLight=false;
+    HWND pathEdit{};HFONT pathFont{};HBRUSH pathBrush{};int pathDpi=-1;bool pathLight=false,pathCreating=false;
     void syncPathEdit() {
-        if(!hwnd)return;
+        if(!hwnd||pathCreating)return;
         if(!pathEdit){
+            pathCreating=true;
             if(!fontPath.empty())AddFontResourceExW(fontPath.c_str(),FR_PRIVATE,nullptr);
             pathEdit=CreateWindowExW(0,L"EDIT",installDirectory().c_str(),WS_CHILD|WS_TABSTOP|ES_AUTOHSCROLL,
                 0,0,0,0,hwnd,reinterpret_cast<HMENU>(1001),instance,nullptr);
+            pathCreating=false;
             SendMessageW(pathEdit,EM_SETLIMITTEXT,230,0);
         }
         if(pathDpi!=int(scale*96)){if(pathFont)DeleteObject(pathFont);
@@ -260,8 +262,8 @@ struct Installer {
         if(preferences) {
             label(tr(L"Настройки установки",L"Installation settings"),44,68,650,38,medium.Get(),ink());
             label(tr(L"Назад",L"Back"),730,75,64,24,detailFont.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
-            label(tr(L"Язык",L"Language"),44,122,50,24,detailFont.Get(),ink());
-            choice(D2D1::RectF(94,116,130,144),L"RU",!english,6);choice(D2D1::RectF(134,116,170,144),L"EN",english,7);
+            label(tr(L"Язык",L"Language"),44,122,72,24,detailFont.Get(),ink());
+            choice(D2D1::RectF(118,116,154,144),L"RU",!english,6);choice(D2D1::RectF(158,116,194,144),L"EN",english,7);
             label(tr(L"Тема",L"Theme"),250,122,50,24,detailFont.Get(),ink());
             choice(D2D1::RectF(297,116,363,144),tr(L"Светлая",L"Light"),themeMode==1,4);
             choice(D2D1::RectF(367,116,433,144),tr(L"Тёмная",L"Dark"),themeMode==2,5);
@@ -700,7 +702,7 @@ struct Installer {
         if(preferences){
             if(inside(p,D2D1::RectF(702,185,794,220)))return 16;
             if(inside(p,D2D1::RectF(44,185,692,220)))return 15;
-            if(inside(p,D2D1::RectF(94,116,130,144)))return 6;if(inside(p,D2D1::RectF(134,116,170,144)))return 7;
+            if(inside(p,D2D1::RectF(118,116,154,144)))return 6;if(inside(p,D2D1::RectF(158,116,194,144)))return 7;
             if(inside(p,D2D1::RectF(297,116,363,144)))return 4;if(inside(p,D2D1::RectF(367,116,433,144)))return 5;if(inside(p,D2D1::RectF(437,116,510,144)))return 3;
             if(inside(p,D2D1::RectF(44,236,600,270)))return 12;if(inside(p,D2D1::RectF(44,274,600,308)))return 13;
             if(inside(p,D2D1::RectF(44,355,304,404)))return 1;return inside(p,D2D1::RectF(720,68,794,104))?2:-1;
@@ -727,7 +729,7 @@ struct Installer {
     void activateFocused() {
         POINT p{};
         if(focused==10)p={740,36};else if(focused==11)p={780,36};else if(focused==20)p={660,374};
-        else if(preferences){switch(focused){case 6:p={112,130};break;case 7:p={152,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 15:SetFocus(pathEdit);return;case 16:p={750,202};break;case 12:p={60,253};break;case 13:p={60,291};break;case 1:p={170,380};break;default:p={760,85};}}
+        else if(preferences){switch(focused){case 6:p={136,130};break;case 7:p={176,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 15:SetFocus(pathEdit);return;case 16:p={750,202};break;case 12:p={60,253};break;case 13:p={60,291};break;case 1:p={170,380};break;default:p={760,85};}}
         else if(focused==14)p={300,418};else if(focused==0)p={120,220};else if(focused==8)p={100,370};
         else{auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}nextClick(p);
     }

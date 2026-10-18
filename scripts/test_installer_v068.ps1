@@ -33,8 +33,12 @@ function Run-Install([string]$target,[bool]$dark,[bool]$en,[bool]$picker=$false)
    if($before.ToString() -ne $after.ToString()){throw 'Cancelling browse changed path'}
    Write-Output 'PASS native folder picker opens and cancellation preserves path'
   }
-  [PathNative]::SetWindowText($edit,$target)|Out-Null
-  Click $h $(if($dark){400}else{330}) 130;Click $h $(if($en){152}else{112}) 130
+  if(![PathNative]::SetWindowText($edit,$target)){throw 'Could not set folder edit text'}
+  $entered=[Text.StringBuilder]::new(32768);[PathNative]::GetWindowText($edit,$entered,32768)|Out-Null
+  if($entered.ToString() -ne $target){throw "Folder edit differs: $entered"}
+  Click $h $(if($dark){400}else{330}) 130;Click $h $(if($en){176}else{136}) 130
+  $entered.Clear()|Out-Null;[PathNative]::GetWindowText([PathNative]::GetDlgItem($h,1001),$entered,32768)|Out-Null
+  if($entered.ToString() -ne $target){throw "Folder changed after theme/language: $entered"}
   Shot $h "preferences-$dark-$en"|Out-Null
   Click $h 170 380;Start-Sleep -Seconds 4
   $actual=Get-ItemPropertyValue $uninstall InstallLocation
