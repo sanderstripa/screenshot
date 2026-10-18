@@ -147,10 +147,11 @@ struct Installer {
             drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),34,329,24);
         }
         // Render titlebar controls in custom client area, hit testing is in WM_LBUTTONUP.
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(534,10,574,44),ink(),hovered==10,pressed==10,focused==10);
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(582,10,622,44),ink(),hovered==11,pressed==11,focused==11);
-        brush->SetColor(mutedInk());
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(534,10,574,44),ink(),false,false,keyboardFocus&&focused==10);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(582,10,622,44),ink(),false,false,keyboardFocus&&focused==11);
+        brush->SetColor(hovered==10||pressed==10?ink():mutedInk());
         target->DrawLine(D2D1::Point2F(553,27),D2D1::Point2F(564,27),brush.Get(),1.2f);
+        brush->SetColor(hovered==11||pressed==11?ink():mutedInk());
         target->DrawLine(D2D1::Point2F(598,20),D2D1::Point2F(608,30),brush.Get(),1.25f);
         target->DrawLine(D2D1::Point2F(608,20),D2D1::Point2F(598,30),brush.Get(),1.25f);
     }
@@ -513,7 +514,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.5") &&
+            writeString(key,L"DisplayVersion",L"0.6.6") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&

@@ -161,12 +161,13 @@ struct Settings {
         target->SetDpi(96*scale,96*scale);target->BeginDraw();
         target->Clear(color(ConnectUI::background(light)));
         text(L"SCREENSHOT.",D2D1::RectF(28,27,400,58),title.Get(),ink(),1.8f);
-        brush->SetColor(color(muted()));
+        brush->SetColor(color(hovered==11||pressed==11?ink():muted()));
         target->DrawLine(D2D1::Point2F(481,31),D2D1::Point2F(489,39),brush.Get(),1);
         target->DrawLine(D2D1::Point2F(489,31),D2D1::Point2F(481,39),brush.Get(),1);
+        brush->SetColor(color(hovered==10||pressed==10?ink():muted()));
         target->DrawLine(D2D1::Point2F(436,35),D2D1::Point2F(446,35),brush.Get(),1);
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(420,18,460,52),color(ink()),hovered==10,pressed==10,keyboardFocus&&focused==10);
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(464,18,504,52),color(ink()),hovered==11,pressed==11,keyboardFocus&&focused==11);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(420,18,460,52),color(ink()),false,false,keyboardFocus&&focused==10);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(464,18,504,52),color(ink()),false,false,keyboardFocus&&focused==11);
         line(80);
         text(tr(L"НАСТРОЙКИ",L"SETTINGS"),D2D1::RectF(appearance?55.0f:28.0f,98,296,128),title.Get(),ink(),1.8f);
         if(appearance) {
