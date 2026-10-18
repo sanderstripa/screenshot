@@ -33,6 +33,19 @@ bool writeDword(const wchar_t* name,DWORD value) {
     bool ok=RegSetValueExW(key,name,0,REG_DWORD,reinterpret_cast<BYTE*>(&value),sizeof(value))==ERROR_SUCCESS;
     RegCloseKey(key);return ok;
 }
+bool readPosition(POINT& point) {
+    DWORD size=sizeof(point);
+    return RegGetValueW(HKEY_CURRENT_USER,CONFIG,L"WindowPosition",RRF_RT_REG_BINARY,nullptr,&point,&size)==ERROR_SUCCESS&&size==sizeof(point);
+}
+POINT visiblePosition(POINT point,int width,int height) {
+    MONITORINFO monitor{sizeof(monitor)};
+    if(GetMonitorInfoW(MonitorFromPoint(point,MONITOR_DEFAULTTONEAREST),&monitor)) {
+        const auto& work=monitor.rcWork;
+        point.x=std::clamp(point.x,work.left,std::max(work.left,work.right-width));
+        point.y=std::clamp(point.y,work.top,std::max(work.top,work.bottom-height));
+    }
+    return point;
+}
 std::wstring shortcutName(UINT vk,UINT mod) {
     std::wstring name;
     if(vk==VK_SNAPSHOT)name=L"Print Screen";
@@ -53,7 +66,16 @@ struct Settings {
     HINSTANCE instance{};HWND hwnd{};float scale=1;
     UINT vk=VK_SNAPSHOT,mod=0,savedVK=VK_SNAPSHOT,savedMod=0;
     bool light=false,listening=false,confirmation=false,preview=false,appearance=false,english=false;
-    bool keyboardFocus=false;
+    bool keyboardFocus=false,positionReady=false;
+    void savePosition() {
+        if(preview||!positionReady||!hwnd||IsIconic(hwnd))return;
+        RECT rect{};if(!GetWindowRect(hwnd,&rect))return;
+        POINT point{rect.left,rect.top};HKEY key{};
+        if(RegCreateKeyExW(HKEY_CURRENT_USER,CONFIG,0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)==ERROR_SUCCESS) {
+            RegSetValueExW(key,L"WindowPosition",0,REG_BINARY,reinterpret_cast<const BYTE*>(&point),sizeof(point));
+            RegCloseKey(key);
+        }
+    }
     DWORD themeMode=2;int hovered=-1,pressed=-1,focused=-1;
     const wchar_t* tr(const wchar_t* ru,const wchar_t* en) const {return english?en:ru;}
     std::wstring status,notice;
@@ -331,6 +353,8 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
     case WM_ERASEBKGND:return 1;
     case WM_PAINT:s->paint();return 0;
     case WM_SIZE:s->brush.Reset();s->target.Reset();InvalidateRect(hwnd,nullptr,FALSE);return 0;
+    case WM_WINDOWPOSCHANGED:s->savePosition();break;
+    case WM_QUERYENDSESSION:s->savePosition();return TRUE;
     case WM_DPICHANGED:{s->scale=HIWORD(wp)/96.0f;auto r=reinterpret_cast<RECT*>(lp);SetWindowPos(hwnd,nullptr,r->left,r->top,int(WIDTH*s->scale),int(HEIGHT*s->scale),SWP_NOZORDER|SWP_NOACTIVATE);return 0;}
     case WM_LBUTTONUP:s->pressed=-1;s->click(GET_X_LPARAM(lp)/s->scale,GET_Y_LPARAM(lp)/s->scale);return 0;
     case WM_KEYDOWN:case WM_SYSKEYDOWN:
@@ -341,7 +365,7 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
         else if(wp==VK_RETURN||wp==VK_SPACE){if(s->focused>=0)s->activate(s->focused);else if(!s->appearance)s->save();}
         return 0;
     case WM_KEYUP:case WM_SYSKEYUP:if(s->listening&&wp==VK_SNAPSHOT)s->key(VK_SNAPSHOT);return 0;
-    case WM_DESTROY:s->hwnd=nullptr;s->brush.Reset();s->target.Reset();s->listening=false;s->confirmation=false;return 0;
+    case WM_DESTROY:s->savePosition();s->positionReady=false;s->hwnd=nullptr;s->brush.Reset();s->target.Reset();s->listening=false;s->confirmation=false;return 0;
     }
     return DefWindowProcW(hwnd,message,wp,lp);
 }
@@ -371,10 +395,17 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
     s.scale=GetDpiForSystem()/96.0f;
     RECT work{};SystemParametersInfoW(SPI_GETWORKAREA,0,&work,0);
     int width=int(WIDTH*s.scale),height=int(HEIGHT*s.scale);
+    POINT position{work.left+(work.right-work.left-width)/2,work.top+(work.bottom-work.top-height)/2};
+    if(!s.preview)readPosition(position);
+    position=visiblePosition(position,width,height);s.positionReady=false;
     s.hwnd=CreateWindowExW(WS_EX_APPWINDOW,L"ScreenshotSettings",L"Screenshot — настройки",
-        WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,work.left+(work.right-work.left-width)/2,
-        work.top+(work.bottom-work.top-height)/2,width,height,nullptr,nullptr,instance,&s);
+        WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,position.x,
+        position.y,width,height,nullptr,nullptr,instance,&s);
     if(!s.hwnd)return;
+    s.scale=GetDpiForWindow(s.hwnd)/96.0f;width=int(WIDTH*s.scale);height=int(HEIGHT*s.scale);
+    position=visiblePosition(position,width,height);
+    SetWindowPos(s.hwnd,nullptr,position.x,position.y,width,height,SWP_NOZORDER|SWP_NOACTIVATE);
+    s.positionReady=true;
     DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;DwmSetWindowAttribute(s.hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
     MARGINS margins{1,1,1,1};DwmExtendFrameIntoClientArea(s.hwnd,&margins);s.theme();
     SetWindowPos(s.hwnd,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
