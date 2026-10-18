@@ -587,6 +587,7 @@ struct Installer {
     int uninstall() {
         wchar_t selfPath[32768]{};if(!GetModuleFileNameW(nullptr,selfPath,32768))return 2;
         std::wstring dir=std::filesystem::path(selfPath).parent_path().wstring();
+        if(_wcsicmp(std::filesystem::path(selfPath).filename().c_str(),L"Uninstall.exe")!=0)dir=installDirectory();
         if(dir.empty())return 2;
         const std::wstring exe=dir+L"\\Screenshot.exe";
         stopOldScreenshot(exe);
@@ -629,6 +630,9 @@ struct Installer {
         if(!success){DeleteFileW(temp.c_str());error(tr(L"Ошибка записи файлов",L"Could not write installation files"),writeError);return false;}
         progress=59;PostMessageW(hwnd,WM_APP+11,0,0);
         const std::wstring exe=dir+L"\\Screenshot.exe";
+        if(!previous.empty()&&_wcsicmp(previous.c_str(),dir.c_str())!=0&&!stopOldScreenshot(previous+L"\\Screenshot.exe")){
+            DeleteFileW(temp.c_str());error(tr(L"Не удалось закрыть прежнюю версию Screenshot",L"Could not close the previous Screenshot version"),ERROR_SHARING_VIOLATION);return false;
+        }
         if(!stopOldScreenshot(exe)){
             DeleteFileW(temp.c_str());error(tr(L"Не удалось закрыть прежнюю версию Screenshot",L"Could not close the previous Screenshot version"),ERROR_SHARING_VIOLATION);return false;
         }
