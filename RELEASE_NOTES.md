@@ -1,9 +1,10 @@
-# Screenshot v0.6.4 — exact VPN theme icons
+# Screenshot v0.6.5 — remember window position
 
-- Replaced the incorrectly sourced theme symbols with the exact Monitor, Sun and Moon SVGs from CONNECT VPN's locked lucide-vue-next 0.468.0 dependency.
-- Matched VPN's 13 px icon size in both application and installer settings.
-- Preserved the approved settings gear, Montserrat, palette, dimensions and application behavior.
+- The application remembers where you move its settings window and restores that position on the next launch, including after a full process restart.
+- Moving saves immediately; minimizing does not overwrite the normal position.
+- If a saved monitor is unavailable, the window returns to a visible work area. Window dimensions and current monitor DPI remain respected.
+- No appearance, capture, shortcut or installer behavior changed.
 
-Verified on Windows: application at 100–250% DPI, actual installer update, working RU/EN and System/Light/Dark, shortcut controls and PNG disk/clipboard. SVG shapes were also compared against the actual locked npm package.
+Verified on Windows: move persistence, close/reopen, full worker restart after minimize, and recovery from an unavailable monitor position. Installation/update and PNG checks passed in Windows CI. A physical PC reboot was not performed.
 
-Exact tested installer SHA-256: `e182d7496391227a2014e1b3ab534a031096c09fea96d9e68bb5d147446410e5`.
+Tested installer SHA-256: fc313115396dd9299aec4fac0a3560bc2a3acf9a391a9a96a03b376758933dda.

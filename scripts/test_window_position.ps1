@@ -5,7 +5,8 @@ using System;
 using System.Runtime.InteropServices;
 public static class PositionNative {
  [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left,Top,Right,Bottom; }
- [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern IntPtr FindWindowW(string cls,string title);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode,EntryPoint="FindWindowW")] private static extern IntPtr FindWindowNative(string cls,string title);
+ public static IntPtr FindWindowW(string cls,string title) { return FindWindowNative(cls,String.IsNullOrEmpty(title)?null:title); }
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h,out Rect r);
  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h,IntPtr after,int x,int y,int w,int height,uint flags);
  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h,uint msg,IntPtr w,IntPtr l);
@@ -27,7 +28,7 @@ function Stop-Worker {
  Start-Sleep -Milliseconds 700
 }
 function Open-Window {
- Start-Process -FilePath $App -ArgumentList '--settings' -WindowStyle Hidden
+ Start-Process -FilePath $App -ArgumentList '--settings'
  for($i=0;$i -lt 60;$i++){
   $h=[PositionNative]::FindWindowW('ScreenshotSettings',$null)
   if($h -ne [IntPtr]::Zero){Start-Sleep -Milliseconds 300;return $h}

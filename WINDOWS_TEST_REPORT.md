@@ -118,3 +118,6 @@ At v0.4.0 the approved attachment was unavailable. The user has since supplied i
 
 ## v0.6.4
 PASS exact SVG comparison against locked VPN npm package 0.468.0; 13px rendering. PASS Windows app at five DPI scales 100–250%, theme/language persistence, shortcut controls, actual installer update, preferences and PNG disk/clipboard. Light app/dark installer screenshots visually reviewed. Stable reuses tested candidate SHA-256 e182d7496391227a2014e1b3ab534a031096c09fea96d9e68bb5d147446410e5.
+
+## v0.6.5 — window placement
+PASS scripts/test_window_position.ps1 on installed Windows app: move persists immediately; close/reopen preserves position; full process restart after minimize preserves normal position; unavailable monitor coordinates recover onto desktop. Test restores original position. Physical PC reboot not performed. Tested candidate SHA-256 fc313115396dd9299aec4fac0a3560bc2a3acf9a391a9a96a03b376758933dda; stable reuses these bytes.
