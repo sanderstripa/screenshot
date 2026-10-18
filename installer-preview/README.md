@@ -2,7 +2,7 @@
 
 Open gallery.html for every screen, or index.html for an interactive visual walkthrough. No installation, shortcut registration, Windows changes or capture operations are performed. Bottom navigation is a review tool outside the installer frame.
 
-Visual source: sanderstripa/connect main, cmd/installer/web/style.css and index.html, retrieved 2026-10-19. Montserrat, 840x540 frame, spacing and light/dark tokens follow that installer. Version is 0.6.7. Browser-extension UI is omitted. Existing Screenshot install semantics remain unchanged: no new destination/shortcut options are introduced. Screenshot's existing System theme option is retained.
+Visual source: sanderstripa/connect main, cmd/installer/web/style.css and index.html, retrieved 2026-10-19. Montserrat, 840x540 frame, spacing and light/dark tokens follow that installer. Version is 0.6.7. Browser-extension UI is omitted. No new destination option is introduced. The review now includes the explicitly requested Desktop and Start menu shortcut switches, and the final Done action with a launch switch. These choices are interactive in the visual review; operating-system integration waits for approval. Screenshot's existing System theme option is retained.
 
 Ribbon: user-supplied pink artwork, original retained in assets/ribbon-original.png; assets/ribbon.png is the transparent-background derivative. Geometry and pink shading were preserved in the background-removal pass and visually inspected on both themes.
 

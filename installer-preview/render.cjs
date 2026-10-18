@@ -13,5 +13,14 @@ const path=require('path');
  await page.goto('file:///'+path.resolve(__dirname,'index.html').replaceAll('\\','/')+'?stage=settings');
  await page.locator('[data-lang=en]').click();if(!await page.locator('h2').filter({hasText:'Installation settings'}).count())throw Error('Language');
  await page.locator('[data-theme=dark]').click();if(await page.locator('html').getAttribute('data-theme')!=='dark')throw Error('Theme');
- console.log('PASS 16 installer stage/theme previews; theme and RU/EN controls; no overflow');await browser.close();
+ for(const option of ['desktop','startMenu']){
+  await page.locator(`[data-option=${option}]`).uncheck();
+  await page.locator('[data-theme=light]').click();
+  if(await page.locator(`[data-option=${option}]`).isChecked())throw Error(`Lost toggle state ${option}`);
+ }
+ await page.locator('#review [data-next=ready]').click();
+ if(!await page.locator('.primary').filter({hasText:'Done'}).count())throw Error('Missing Done action');
+ await page.locator('[data-option=launch]').uncheck();await page.locator('[data-language]').click();
+ if(await page.locator('[data-option=launch]').isChecked())throw Error('Lost launch state');
+ console.log('PASS 16 previews; theme/RU-EN; no overflow; shortcut and launch switches retain state');await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
