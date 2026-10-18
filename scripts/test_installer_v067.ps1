@@ -1,8 +1,12 @@
-param([Parameter(Mandatory=$true)][string]$Setup,[string]$Output='test-results/installer-0.6.7')
+param([Parameter(Mandatory=$true)][string]$Setup,[string]$Output='test-results/installer-0.6.7',[switch]$SkipPreviews,[int]$FromMask=0)
 $ErrorActionPreference='Stop'
 $source=Get-Content scripts/test_installer_switches.ps1 -Raw
 $a=$source.IndexOf("Add-Type -AssemblyName");$b=$source.IndexOf('$process=Start-Process')
 Invoke-Expression $source.Substring($a,$b-$a)
+$originalClick=(Get-Item Function:Click).ScriptBlock;$originalShot=(Get-Item Function:Shot).ScriptBlock
+function Restore-Fixture($h){if([SettingsNative]::IsIconic($h)){[SettingsNative]::ShowWindow($h,9)|Out-Null;Start-Sleep -Milliseconds 200;[SettingsNative]::SetWindowPos($h,[IntPtr]1,0,0,0,0,0x13)|Out-Null}}
+function Click($h,$x,$y){Restore-Fixture $h;& $originalClick $h $x $y}
+function Shot($h,$name){Restore-Fixture $h;& $originalShot $h $name}
 $Setup=(Resolve-Path $Setup).Path
 function Find-Setup($p){for($i=0;$i -lt 100;$i++){$h=[SettingsNative]::FindForProcess('ScreenshotPremiumSetup',$p.Id);if($h -ne [IntPtr]::Zero){[SettingsNative]::ShowWindow($h,4)|Out-Null;[SettingsNative]::SetWindowPos($h,[IntPtr]1,0,0,0,0,0x13)|Out-Null;Start-Sleep -Milliseconds 200;return $h};Start-Sleep -Milliseconds 70};throw 'Missing setup window'}
 function Stop-Worker{$e=[SettingsNative]::OpenEvent(2,$false,'Local\Screenshot.SanderStripa.Exit');if($e -ne [IntPtr]::Zero){[SettingsNative]::SetEvent($e)|Out-Null;[SettingsNative]::CloseHandle($e)|Out-Null};Start-Sleep -Milliseconds 600}
@@ -10,12 +14,12 @@ $cfg='HKCU:\Software\SanderStripa\Screenshot';$backup=@{}
 foreach($n in 'HotkeyVK','HotkeyModifiers'){try{$backup[$n]=Get-ItemPropertyValue $cfg $n -ErrorAction Stop}catch{$backup[$n]=$null}}
 $desktop=Join-Path ([Environment]::GetFolderPath('Desktop')) 'Screenshot.lnk';$menu=Join-Path ([Environment]::GetFolderPath('Programs')) 'Screenshot.lnk'
 try {
- foreach($dpi in 96,144,192){foreach($theme in 'light','dark'){foreach($step in 0..5){
+ if(!$SkipPreviews){foreach($dpi in 96,144,192){foreach($theme in 'light','dark'){foreach($step in 0..5){
   $p=Start-Process $Setup -ArgumentList "--preview $step $dpi $theme" -PassThru -WindowStyle Hidden
   try{$h=Find-Setup $p;Shot $h "preview-$step-$theme-$dpi"|Out-Null;$r=[SettingsNative+Rect]::new();[SettingsNative]::GetWindowRect($h,[ref]$r)|Out-Null;if($r.Right-$r.Left -ne 840*$dpi/96 -or $r.Bottom-$r.Top -ne 540*$dpi/96){throw 'Wrong DPI frame'}}finally{Stop-Process -Id $p.Id -ErrorAction SilentlyContinue}
  }}}
- Write-Output 'PASS six native stages, both themes at 100/150/200 percent DPI'
- foreach($mask in 0..3){
+ Write-Output 'PASS six native stages, both themes at 100/150/200 percent DPI'}
+ foreach($mask in $FromMask..3){
   $p=Start-Process $Setup -PassThru -WindowStyle Hidden
   try{
    $h=Find-Setup $p;Click $h 100 370

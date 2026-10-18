@@ -1,9 +1,11 @@
-# Screenshot v0.6.6 — flat window controls
+# Screenshot v0.6.7 — approved CONNECT installer
 
-- Removed minimize/close button backgrounds from both application and installer in light and dark themes, including hover and pressed states.
-- Pointer feedback changes only the symbol color. Keyboard navigation retains its focus outline.
-- Existing palette, dimensions, settings gear, capture and position persistence remain unchanged.
+- Rebuilt the native installer visuals from the approved CONNECT installer reference: Montserrat, 840×540 layout, light/dark tones, supplied pink ribbon, shared footer and Screenshot version.
+- Added independent Desktop and Start menu shortcut switches.
+- The final Done action has a launch switch underneath; turning it off closes setup without opening the application window. The screenshot worker remains available for the configured capture shortcut.
+- Kept installation/update, hotkey assignment and explicit Print Screen confirmation. No browser extension is included.
+- Application UI and capture code are unchanged; app version metadata is 0.6.7.
 
-Windows verification: actual installed application and installer, both themes, both buttons, normal/hover/pressed states. Native rendered pixels confirmed no background fill; screenshots reviewed. Windows CI installation/update and PNG checks passed.
+Windows validation: six native stages × both themes × 100/150/200% DPI; RU/EN and theme switching; all four actual install/update shortcut combinations; shortcut targets; Print Screen consent cancellation; Done with launch off/on. Windows CI verifies clean install/reinstall/live upgrade, autostart, uninstall and PNG/clipboard.
 
-Tested installer SHA-256: 9216d00e98d2054a2381f90ea114f3cc57ae90e08e9a62914a3dbb0ed767e7ff.
+The final release uses the exact locally tested v0.6.7-rc.2 installer, SHA-256: 4ddfab82fd07d25dfcb8a5e9078bc54a20a9cb307490d168e3abe2d95ed217de.

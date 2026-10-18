@@ -6,8 +6,8 @@ Visual source: sanderstripa/connect main, cmd/installer/web/style.css and index.
 
 Ribbon: user-supplied pink artwork, original retained in assets/ribbon-original.png; assets/ribbon.png is the transparent-background derivative. Geometry and pink shading were preserved in the background-removal pass and visually inspected on both themes.
 
-Screens: welcome, settings, installing, installed, hotkey, explicit Print Screen consent, ready, failure. Preview theme/language selection and shortcut listening work locally. Progress and operating-system actions are deliberately visual only; the native installer remains unchanged until approval.
+Screens: welcome, settings, installing, installed, hotkey, explicit Print Screen consent, ready, failure. Preview theme/language selection and shortcut listening work locally. Progress and operating-system actions are deliberately visual only; the native installer in src/setup.cpp now implements this approved design.
 
 Checked 16 stage/theme renders, no frame overflow, RU/EN and theme controls. Screenshots are in screens/. render.cjs is a local review renderer and uses the workstation's Playwright/Chrome paths.
 
-Approval gate: do not finish the Windows installer build or publish 0.6.7 before the user approves this visual review. No release workflow was changed or triggered by this branch.
+Approved by the user on 2026-10-19. Native integration, Windows verification and publication are authorized.

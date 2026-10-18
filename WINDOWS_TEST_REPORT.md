@@ -124,3 +124,6 @@ PASS scripts/test_window_position.ps1 on installed Windows app: move persists im
 
 ## v0.6.6 — caption buttons without fills
 PASS actual native window pixel checks: app/setup x light/dark x minimize/close x normal/hover/pressed. Screenshots reviewed. Candidate SHA-256 9216d00e98d2054a2381f90ea114f3cc57ae90e08e9a62914a3dbb0ed767e7ff; stable reuses tested bytes.
+
+## v0.6.7 — approved native CONNECT installer
+Approved visual integration in src/setup.cpp. Six native wizard stages in light/dark at 100/150/200% DPI captured. Actual GUI update checks cover all four Desktop/Start menu shortcut combinations and their target/--settings arguments, RU/EN and System/Light/Dark, Print Screen confirmation cancellation, custom shortcut activation and Done launch off/on. User hotkey configuration restored by test. Application main.cpp/settings.cpp/connect_ui.h unchanged. Windows CI covers clean/reinstall/live upgrade/autostart/uninstall and PNG/clipboard. Final candidate v0.6.7-rc.2 SHA-256 4ddfab82fd07d25dfcb8a5e9078bc54a20a9cb307490d168e3abe2d95ed217de; stable publishes those exact bytes. Native screenshots reviewed against approved preview; no real reboot test.
