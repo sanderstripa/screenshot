@@ -12,10 +12,10 @@ const path=require('path');
  }
  await page.goto('file:///'+path.resolve(__dirname,'index.html').replaceAll('\\','/')+'?stage=settings');
  await page.locator('[data-lang=en]').click();if(!await page.locator('h2').filter({hasText:'Installation settings'}).count())throw Error('Language');
- await page.locator('[data-theme=dark]').click();if(await page.locator('html').getAttribute('data-theme')!=='dark')throw Error('Theme');
+ await page.locator('button[data-theme=dark]').click();if(await page.locator('html').getAttribute('data-theme')!=='dark')throw Error('Theme');
  for(const option of ['desktop','startMenu']){
   await page.locator(`[data-option=${option}]`).uncheck();
-  await page.locator('[data-theme=light]').click();
+  await page.locator('button[data-theme=light]').click();
   if(await page.locator(`[data-option=${option}]`).isChecked())throw Error(`Lost toggle state ${option}`);
  }
  await page.locator('#review [data-next=ready]').click();

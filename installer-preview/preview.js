@@ -24,7 +24,7 @@ function render(){
  document.querySelectorAll('[data-option]').forEach(input=>input.onchange=()=>{preferences[input.dataset.option]=input.checked});
  document.querySelectorAll('[data-next]').forEach(b=>b.onclick=()=>{stage=b.dataset.next;render()});
  document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{lang=b.dataset.lang;render()});
- document.querySelectorAll('[data-theme]').forEach(b=>b.onclick=()=>{theme=b.dataset.theme;render()});
+ document.querySelectorAll('button[data-theme]').forEach(b=>b.onclick=()=>{theme=b.dataset.theme;render()});
  document.querySelector('[data-toggle]').onclick=()=>{theme=theme==='dark'?'light':'dark';render()};
  document.querySelector('[data-language]').onclick=()=>{lang=lang==='ru'?'en':'ru';render()};
  const field=document.querySelector('#keyField');if(field)field.onclick=()=>{field.textContent=t('Нажмите клавишу…','Press a key…');field.onkeydown=e=>{e.preventDefault();field.textContent=e.key==='PrintScreen'?'Print Screen':e.key;field.onkeydown=null}};
