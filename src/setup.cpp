@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <d2d1.h>
 #include <dwrite.h>
+#include <dwrite_1.h>
 #include "bundled_font.h"
 #include "connect_ui.h"
 #include "approved_settings_icon.h"
@@ -138,6 +139,14 @@ struct Installer {
         if(!font) return;
         font->SetTextAlignment(align);
         brush->SetColor(color);
+        if(font==headline.Get()||y>=510) {
+            ComPtr<IDWriteTextLayout> layout;ComPtr<IDWriteTextLayout1> tracking;
+            if(SUCCEEDED(fonts->CreateTextLayout(value.c_str(),static_cast<UINT32>(value.size()),font,width,height,&layout))&&SUCCEEDED(layout.As(&tracking))) {
+                const float spacing=font==headline.Get()?-.9f:.5f;
+                tracking->SetCharacterSpacing(spacing,spacing,0,DWRITE_TEXT_RANGE{0,static_cast<UINT32>(value.size())});
+                target->DrawTextLayout(D2D1::Point2F(x,y),layout.Get(),brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);return;
+            }
+        }
         target->DrawTextW(value.c_str(),(UINT32)value.size(),font,
             D2D1::RectF(x,y,x+width,y+height),brush.Get(),D2D1_DRAW_TEXT_OPTIONS_CLIP);
     }
@@ -291,10 +300,10 @@ struct Installer {
         }
         if(!notice.empty()) {
             fill(D2D1::RectF(0,60,W,H),surface());
-            rounded(D2D1::RectF(28,84,612,370),8,surface());outline(D2D1::RectF(28,84,612,370),8,edge());
-            label(tr(L"УВЕДОМЛЕНИЕ",L"NOTICE"),52,108,536,36,medium.Get(),ink());
-            label(notice,52,160,536,132,regular.Get(),mutedInk());
-            button(D2D1::RectF(436,310,588,346),L"OK");
+            rounded(D2D1::RectF(44,130,794,425),8,surface());outline(D2D1::RectF(44,130,794,425),8,edge());
+            label(tr(L"УВЕДОМЛЕНИЕ",L"NOTICE"),68,152,702,40,medium.Get(),ink());
+            label(notice,68,212,702,112,regular.Get(),mutedInk());
+            button(D2D1::RectF(566,350,770,399),L"OK");
         }
         HRESULT hr=target->EndDraw();
         if(hr==D2DERR_RECREATE_TARGET){artwork.Reset();brush.Reset();target.Reset();}
@@ -621,7 +630,7 @@ struct Installer {
     }
     int hit(POINT p) const {
         if(p.y<60&&p.x>720)return p.x>760?11:10;
-        if(!notice.empty())return inside(p,D2D1::RectF(436,310,588,346))?20:-1;
+        if(!notice.empty())return inside(p,D2D1::RectF(566,350,770,399))?20:-1;
         if(preferences){
             if(inside(p,D2D1::RectF(94,116,130,144)))return 6;if(inside(p,D2D1::RectF(134,116,170,144)))return 7;
             if(inside(p,D2D1::RectF(297,116,363,144)))return 4;if(inside(p,D2D1::RectF(367,116,433,144)))return 5;if(inside(p,D2D1::RectF(437,116,510,144)))return 3;
@@ -649,7 +658,7 @@ struct Installer {
     }
     void activateFocused() {
         POINT p{};
-        if(focused==10)p={740,36};else if(focused==11)p={780,36};else if(focused==20)p={510,328};
+        if(focused==10)p={740,36};else if(focused==11)p={780,36};else if(focused==20)p={660,374};
         else if(preferences){switch(focused){case 6:p={112,130};break;case 7:p={152,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 12:p={60,191};break;case 13:p={60,229};break;case 1:p={170,350};break;default:p={760,85};}}
         else if(focused==14)p={300,418};else if(focused==0)p={120,220};else if(focused==8)p={100,370};
         else{auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}nextClick(p);
@@ -659,7 +668,7 @@ struct Installer {
         if(p.y<60&&p.x>720) {
             if(p.x>760)SendMessageW(hwnd,WM_CLOSE,0,0);else ShowWindow(hwnd,SW_MINIMIZE);return;
         }
-        if(!notice.empty()){if(inside(p,D2D1::RectF(436,310,588,346))){notice.clear();focused=-1;redraw();}return;}
+        if(!notice.empty()){if(inside(p,D2D1::RectF(566,350,770,399))){notice.clear();focused=-1;redraw();}return;}
         if(preferences) {
             if(focused>=3&&focused<=5){themeMode=focused-3;light=themeMode==0?ConnectUI::systemLight():themeMode==1;theme();}
             else if(focused==6||focused==7){english=focused==7;redraw();}
