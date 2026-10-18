@@ -24,6 +24,7 @@
 #include <shldisp.h>
 #include <shlguid.h>
 #include <servprov.h>
+#include <shobjidl.h>
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"dwrite.lib")
 #pragma comment(lib,"shell32.lib")
@@ -81,6 +82,52 @@ struct Installer {
     void theme() {BOOL dark=!light;DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));COLORREF border=light?RGB(218,218,218):RGB(45,47,50);DwmSetWindowAttribute(hwnd,DWMWA_BORDER_COLOR,&border,sizeof(border));redraw();}
     bool needsRelogin = false;
     bool desktopShortcut=true,startMenuShortcut=true,openAfter=true;
+    std::wstring destination;
+    HWND pathEdit{};HFONT pathFont{};HBRUSH pathBrush{};int pathDpi=-1;bool pathLight=false;
+    void syncPathEdit() {
+        if(!hwnd)return;
+        if(!pathEdit){
+            if(!fontPath.empty())AddFontResourceExW(fontPath.c_str(),FR_PRIVATE,nullptr);
+            pathEdit=CreateWindowExW(0,L"EDIT",installDirectory().c_str(),WS_CHILD|WS_TABSTOP|ES_AUTOHSCROLL,
+                0,0,0,0,hwnd,reinterpret_cast<HMENU>(1001),instance,nullptr);
+            SendMessageW(pathEdit,EM_SETLIMITTEXT,230,0);
+        }
+        if(pathDpi!=int(scale*96)){if(pathFont)DeleteObject(pathFont);
+        pathFont=CreateFontW(-int(12*scale),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Montserrat");
+        SendMessageW(pathEdit,WM_SETFONT,reinterpret_cast<WPARAM>(pathFont),TRUE);pathDpi=int(scale*96);}
+        if(!pathBrush||pathLight!=light){if(pathBrush)DeleteObject(pathBrush);pathBrush=CreateSolidBrush(light?RGB(235,233,228):RGB(41,43,44));pathLight=light;}
+        SetWindowPos(pathEdit,nullptr,int(57*scale),int(193*scale),int(620*scale),int(20*scale),SWP_NOZORDER|SWP_NOACTIVATE);
+        ShowWindow(pathEdit,preferences&&notice.empty()?SW_SHOWNOACTIVATE:SW_HIDE);InvalidateRect(pathEdit,nullptr,TRUE);
+    }
+    bool acceptPath() {
+        wchar_t raw[32768]{},expanded[32768]{},full[32768]{};
+        if(pathEdit)GetWindowTextW(pathEdit,raw,32768);else wcscpy_s(raw,installDirectory().c_str());
+        const DWORD length=ExpandEnvironmentStringsW(raw,expanded,32768);
+        if(!length||length>32768||!std::filesystem::path(expanded).is_absolute()||wcslen(expanded)>230||wcspbrk(expanded,L"\"<>|*?")){
+            showNotice(tr(L"Укажите полный путь к папке установки.",L"Enter an absolute installation folder path."));return false;
+        }
+        DWORD n=GetFullPathNameW(expanded,32768,full,nullptr);if(!n||n>=32768)return false;
+        std::filesystem::path path(full);path=path.lexically_normal();
+        if(path==path.root_path()){showNotice(tr(L"Выберите отдельную папку для Screenshot.",L"Choose a dedicated folder for Screenshot."));return false;}
+        destination=path.wstring();while(!destination.empty()&&(destination.back()==L'\\'||destination.back()==L'/'))destination.pop_back();
+        const DWORD attributes=GetFileAttributesW(destination.c_str());
+        if(attributes!=INVALID_FILE_ATTRIBUTES&&!(attributes&FILE_ATTRIBUTE_DIRECTORY)){showNotice(tr(L"Этот путь указывает на файл. Выберите папку.",L"This path is a file. Choose a folder."));return false;}
+        return true;
+    }
+    void browsePath() {
+        ComPtr<IFileOpenDialog> dialog;
+        if(FAILED(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog))))return;
+        DWORD options=0;dialog->GetOptions(&options);dialog->SetOptions(options|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_NOCHANGEDIR);
+        dialog->SetTitle(tr(L"Папка установки Screenshot",L"Screenshot installation folder"));
+        ComPtr<IShellItem> initial;wchar_t current[32768]{};GetWindowTextW(pathEdit,current,32768);
+        if(SUCCEEDED(SHCreateItemFromParsingName(current,nullptr,IID_PPV_ARGS(&initial))))dialog->SetFolder(initial.Get());
+        if(SUCCEEDED(dialog->Show(hwnd))){ComPtr<IShellItem> result;PWSTR path=nullptr;
+            if(SUCCEEDED(dialog->GetResult(&result))&&SUCCEEDED(result->GetDisplayName(SIGDN_FILESYSPATH,&path))){SetWindowTextW(pathEdit,path);CoTaskMemFree(path);}}
+    }
+    bool saveAppearance() {
+        HKEY key{};if(RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\SanderStripa\\Screenshot",0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
+        bool ok=writeDWORD(key,L"ThemeMode",themeMode)&&writeDWORD(key,L"ThemeLight",light?1:0)&&writeDWORD(key,L"LanguageEN",english?1:0);RegCloseKey(key);return ok;
+    }
     bool hoverPrimary = false, hoverSecondary = false, hoverInput = false;
     ComPtr<ID2D1Factory> factory;
     ComPtr<ID2D1HwndRenderTarget> target;
@@ -162,7 +209,7 @@ struct Installer {
         if(keyboardFocus&&(focused==10||focused==11))outline(D2D1::RectF(focused==10?725.0f:767.0f,20,focused==10?753.0f:795.0f,50),5,mutedInk());
         brush->SetColor(edge());target->DrawLine(D2D1::Point2F(44,490),D2D1::Point2F(794,490),brush.Get());
         label(L"by CONNECT.",44,510,250,20,smallText.Get(),mutedInk());
-        label(tr(L"Версия 0.6.7",L"Version 0.6.7"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
+        label(tr(L"Версия 0.6.8",L"Version 0.6.8"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
         rounded(rect,10,D2D1::ColorF(light?0x242A28:0xE3E4DF));
@@ -219,11 +266,14 @@ struct Installer {
             choice(D2D1::RectF(297,116,363,144),tr(L"Светлая",L"Light"),themeMode==1,4);
             choice(D2D1::RectF(367,116,433,144),tr(L"Тёмная",L"Dark"),themeMode==2,5);
             choice(D2D1::RectF(437,116,510,144),tr(L"Система",L"System"),themeMode==0,3);
-            toggle(44,180,tr(L"Ярлык на рабочем столе",L"Desktop shortcut"),desktopShortcut,12);
-            toggle(44,218,tr(L"Ярлык в меню «Пуск»",L"Start menu shortcut"),startMenuShortcut,13);
-            brush->SetColor(edge());target->DrawLine(D2D1::Point2F(44,266),D2D1::Point2F(794,266),brush.Get());
-            label(tr(L"Язык и оформление применяются ко всем этапам установки.",L"Language and appearance apply to every installation step."),44,276,750,25,smallText.Get(),mutedInk());
-            button(D2D1::RectF(44,329,304,378),tr(L"Принять и установить",L"Accept and install"));return;
+            label(tr(L"Папка установки",L"Installation folder"),44,162,650,24,detailFont.Get(),mutedInk());
+            rounded(D2D1::RectF(44,185,692,220),6,D2D1::ColorF(light?0xEBE9E4:0x292B2C));outline(D2D1::RectF(44,185,692,220),6,edge());
+            outline(D2D1::RectF(702,185,794,220),6,edge());
+            label(tr(L"Выбрать…",L"Browse…"),702,194,92,24,detailFont.Get(),ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
+            toggle(44,242,tr(L"Ярлык на рабочем столе",L"Desktop shortcut"),desktopShortcut,12);
+            toggle(44,280,tr(L"Ярлык в меню «Пуск»",L"Start menu shortcut"),startMenuShortcut,13);
+            label(tr(L"Язык и оформление будут применены к приложению.",L"Language and appearance will also apply to the application."),44,318,750,25,smallText.Get(),mutedInk());
+            button(D2D1::RectF(44,355,304,404),tr(L"Принять и установить",L"Accept and install"));return;
         }
         if(step==Welcome) {
             label(tr(L"У С Т А Н О В К А",L"I N S T A L L A T I O N"),44,174,365,25,eyebrowFont.Get(),ink());
@@ -309,7 +359,7 @@ struct Installer {
         if(hr==D2DERR_RECREATE_TARGET){artwork.Reset();brush.Reset();target.Reset();}
         EndPaint(hwnd,&ps);
     }
-    void redraw() { InvalidateRect(hwnd,nullptr,FALSE); }
+    void redraw() { syncPathEdit();InvalidateRect(hwnd,nullptr,FALSE); }
     bool saveConfig() {
         HKEY key=nullptr;
         if(RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\SanderStripa\\Screenshot",0,
@@ -342,9 +392,7 @@ struct Installer {
         return false;
     }
     bool launchBackground(bool settings=false) {
-        wchar_t local[MAX_PATH]{};
-        if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)))return false;
-        std::wstring file=std::wstring(local)+L"\\Programs\\Screenshot\\Screenshot.exe";
+        std::wstring file=installDirectory()+L"\\Screenshot.exe";
         STARTUPINFOW si{sizeof(si)};
         PROCESS_INFORMATION pi{};
         std::wstring cmd=L"\""+file+(settings?L"\" --settings":L"\" --background");
@@ -444,7 +492,14 @@ struct Installer {
             reinterpret_cast<const BYTE*>(value.c_str()),
             static_cast<DWORD>((value.size()+1)*sizeof(wchar_t)))==ERROR_SUCCESS;
     }
+    std::wstring registeredDirectory() {
+        wchar_t value[32768]{};DWORD size=sizeof(value);
+        return RegGetValueW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",L"InstallLocation",RRF_RT_REG_SZ,nullptr,value,&size)==ERROR_SUCCESS?value:L"";
+    }
     std::wstring installDirectory() {
+        if(!destination.empty())return destination;
+        wchar_t registered[32768]{};DWORD length=sizeof(registered);
+        if(RegGetValueW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",L"InstallLocation",RRF_RT_REG_SZ,nullptr,registered,&length)==ERROR_SUCCESS&&registered[0])return registered;
         wchar_t local[MAX_PATH]{};
         if(FAILED(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)))
             return {};
@@ -492,7 +547,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.7") &&
+            writeString(key,L"DisplayVersion",L"0.6.8") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -530,7 +585,8 @@ struct Installer {
         if(SUCCEEDED(initialized))CoUninitialize();return ok;
     }
     int uninstall() {
-        std::wstring dir=installDirectory();
+        wchar_t selfPath[32768]{};if(!GetModuleFileNameW(nullptr,selfPath,32768))return 2;
+        std::wstring dir=std::filesystem::path(selfPath).parent_path().wstring();
         if(dir.empty())return 2;
         const std::wstring exe=dir+L"\\Screenshot.exe";
         stopOldScreenshot(exe);
@@ -546,6 +602,7 @@ struct Installer {
         return 0;
     }
     bool installPayload() {
+        const std::wstring previous=registeredDirectory();
         const std::wstring dir=installDirectory();
         if(dir.empty()){error(tr(L"Не удалось определить папку пользователя",L"Could not locate your user folder"),GetLastError());return false;}
         if(SHCreateDirectoryExW(nullptr,dir.c_str(),nullptr)!=ERROR_SUCCESS &&
@@ -590,6 +647,10 @@ struct Installer {
         if(!registerInstall(dir)){
             error(tr(L"Не удалось зарегистрировать приложение в Windows",L"Could not register the app in Windows"),GetLastError());return false;
         }
+        if(!saveAppearance()){error(tr(L"Не удалось сохранить тему и язык.",L"Could not save theme and language."),GetLastError());return false;}
+        if(!previous.empty()&&_wcsicmp(previous.c_str(),dir.c_str())!=0){
+            DeleteFileW((previous+L"\\Screenshot.exe").c_str());DeleteFileW((previous+L"\\Uninstall.exe").c_str());RemoveDirectoryW(previous.c_str());
+        }
         // Replacing an EXE at the same path must also invalidate Explorer's cached icon.
         SHChangeNotify(SHCNE_UPDATEITEM,SHCNF_PATHW,exe.c_str(),nullptr);
         SHChangeNotify(SHCNE_UPDATEITEM,SHCNF_PATHW,self,nullptr);
@@ -604,6 +665,7 @@ struct Installer {
         }
     }
     void startInstallation() {
+        if(!acceptPath())return;
         if(working.exchange(true))return;
         step=Installing;result=-99;progress=8;redraw();
         if(worker.joinable())worker.join();
@@ -632,10 +694,12 @@ struct Installer {
         if(p.y<60&&p.x>720)return p.x>760?11:10;
         if(!notice.empty())return inside(p,D2D1::RectF(566,350,770,399))?20:-1;
         if(preferences){
+            if(inside(p,D2D1::RectF(702,185,794,220)))return 16;
+            if(inside(p,D2D1::RectF(44,185,692,220)))return 15;
             if(inside(p,D2D1::RectF(94,116,130,144)))return 6;if(inside(p,D2D1::RectF(134,116,170,144)))return 7;
             if(inside(p,D2D1::RectF(297,116,363,144)))return 4;if(inside(p,D2D1::RectF(367,116,433,144)))return 5;if(inside(p,D2D1::RectF(437,116,510,144)))return 3;
-            if(inside(p,D2D1::RectF(44,174,600,208)))return 12;if(inside(p,D2D1::RectF(44,212,600,246)))return 13;
-            if(inside(p,D2D1::RectF(44,329,304,378)))return 1;return inside(p,D2D1::RectF(720,68,794,104))?2:-1;
+            if(inside(p,D2D1::RectF(44,236,600,270)))return 12;if(inside(p,D2D1::RectF(44,274,600,308)))return 13;
+            if(inside(p,D2D1::RectF(44,355,304,404)))return 1;return inside(p,D2D1::RectF(720,68,794,104))?2:-1;
         }
         if(step==Welcome&&inside(p,D2D1::RectF(44,350,344,390)))return 8;
         if(step==Ready&&inside(p,D2D1::RectF(284,400,660,440)))return 14;
@@ -647,7 +711,7 @@ struct Installer {
         listening=false;keyboardFocus=true;
         std::vector<int> ids;
         if(!notice.empty())ids={20,10,11};
-        else if(preferences)ids={6,7,4,5,3,12,13,1,2,10,11};
+        else if(preferences)ids={6,7,4,5,3,15,16,12,13,1,2,10,11};
         else if(step==Welcome)ids={1,8,10,11};
         else if(step==Hotkey)ids={0,1,10,11};
         else if(step==Confirm)ids={2,1,10,11};
@@ -659,7 +723,7 @@ struct Installer {
     void activateFocused() {
         POINT p{};
         if(focused==10)p={740,36};else if(focused==11)p={780,36};else if(focused==20)p={660,374};
-        else if(preferences){switch(focused){case 6:p={112,130};break;case 7:p={152,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 12:p={60,191};break;case 13:p={60,229};break;case 1:p={170,350};break;default:p={760,85};}}
+        else if(preferences){switch(focused){case 6:p={112,130};break;case 7:p={152,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 15:SetFocus(pathEdit);return;case 16:p={750,202};break;case 12:p={60,253};break;case 13:p={60,291};break;case 1:p={170,380};break;default:p={760,85};}}
         else if(focused==14)p={300,418};else if(focused==0)p={120,220};else if(focused==8)p={100,370};
         else{auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}nextClick(p);
     }
@@ -672,6 +736,8 @@ struct Installer {
         if(preferences) {
             if(focused>=3&&focused<=5){themeMode=focused-3;light=themeMode==0?ConnectUI::systemLight():themeMode==1;theme();}
             else if(focused==6||focused==7){english=focused==7;redraw();}
+            else if(focused==16){browsePath();redraw();}
+            else if(focused==15){SetFocus(pathEdit);}
             else if(focused==12){desktopShortcut=!desktopShortcut;redraw();}
             else if(focused==13){startMenuShortcut=!startMenuShortcut;redraw();}
             else if(focused==1){preferences=false;startInstallation();}
@@ -732,6 +798,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
                 SWP_NOZORDER|SWP_NOACTIVATE);
             return 0;
         }
+        case WM_CTLCOLOREDIT:if(reinterpret_cast<HWND>(l)==s->pathEdit){SetTextColor(reinterpret_cast<HDC>(w),s->light?RGB(32,38,36):RGB(237,237,233));SetBkColor(reinterpret_cast<HDC>(w),s->light?RGB(235,233,228):RGB(41,43,44));return reinterpret_cast<LRESULT>(s->pathBrush);}break;
         case WM_SETTINGCHANGE:if(s->themeMode==0){s->light=ConnectUI::systemLight();s->theme();}return 0;
         case WM_SIZE:
             s->artwork.Reset();s->brush.Reset();s->target.Reset();s->redraw();return 0;
@@ -808,7 +875,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
         wchar_t local[MAX_PATH]{};
         if(SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local)!=S_OK)
             {CoUninitialize();return 11;}
-        const std::wstring installed=std::wstring(local)+L"\\Programs\\Screenshot\\Screenshot.exe";
+        const std::wstring installed=probe.installDirectory()+L"\\Screenshot.exe";
         DWORD attrs=GetFileAttributesW(installed.c_str());
         int testResult=(probe.result.load()==0 && attrs!=INVALID_FILE_ATTRIBUTES)?0:12;
         CoUninitialize();
@@ -870,6 +937,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     UpdateWindow(hwnd);
     MSG message{};
     while(GetMessageW(&message,nullptr,0,0)>0) {
+        if(message.hwnd==setup.pathEdit&&message.message==WM_KEYDOWN&&(message.wParam==VK_TAB||message.wParam==VK_RETURN||message.wParam==VK_ESCAPE)){SetFocus(hwnd);if(message.wParam==VK_TAB){setup.focused=15;setup.tab((GetKeyState(VK_SHIFT)&0x8000)!=0);}else if(message.wParam==VK_RETURN){setup.focused=1;setup.activateFocused();}else{setup.preferences=false;setup.redraw();}continue;}
         TranslateMessage(&message);DispatchMessageW(&message);
     }
     // Do not free Installer before the background worker exits.
@@ -882,7 +950,8 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     setup.actionFont.Reset();setup.detailFont.Reset();setup.eyebrowFont.Reset();setup.collection.Reset();
     if(setup.fontLoader)setup.fonts->UnregisterFontCollectionLoader(setup.fontLoader.Get());
     setup.fontLoader.Reset();setup.fonts.Reset();setup.factory.Reset();
-    if(!setup.fontPath.empty())DeleteFileW(setup.fontPath.c_str());
+    if(setup.pathFont)DeleteObject(setup.pathFont);if(setup.pathBrush)DeleteObject(setup.pathBrush);
+    if(!setup.fontPath.empty()){RemoveFontResourceExW(setup.fontPath.c_str(),FR_PRIVATE,nullptr);DeleteFileW(setup.fontPath.c_str());}
     CoUninitialize();
     return 0;
 }
