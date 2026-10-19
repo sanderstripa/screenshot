@@ -217,19 +217,19 @@ struct Installer {
         if(keyboardFocus&&(focused==10||focused==11))outline(D2D1::RectF(focused==10?725.0f:767.0f,20,focused==10?753.0f:795.0f,50),5,mutedInk());
         brush->SetColor(edge());target->DrawLine(D2D1::Point2F(44,490),D2D1::Point2F(794,490),brush.Get());
         label(L"by CONNECT.",44,510,250,20,smallText.Get(),mutedInk());
-        label(tr(L"Версия 0.6.9",L"Version 0.6.9"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
+        label(tr(L"Версия 0.6.10",L"Version 0.6.10"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
         rounded(rect,10,D2D1::ColorF(light?0x242A28:0xE3E4DF));
         if(!active)outline(rect,8,edge());
-        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==(notice.empty()?1:20),pressed==(notice.empty()?1:20),focused==(notice.empty()?1:20));
+        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==(notice.empty()?1:20),pressed==(notice.empty()?1:20),false);
         actionFont->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,actionFont.Get(),D2D1::ColorF(light?0xFFFFFF:0x202122),DWRITE_TEXT_ALIGNMENT_CENTER);
     }
     void secondaryButton(D2D1_RECT_F rect,std::wstring text) {
         rounded(rect,8,D2D1::ColorF(ConnectUI::hover(light)));
         outline(rect,8,edge());
-        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==2,pressed==2,focused==2);
+        ConnectUI::feedback(target.Get(),brush.Get(),rect,ink(),hovered==2,pressed==2,false);
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         label(text,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,regular.Get(),
             ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -558,7 +558,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.9") &&
+            writeString(key,L"DisplayVersion",L"0.6.10") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
