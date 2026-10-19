@@ -22,6 +22,7 @@ for(const id of ['light','dark'])$(id).onclick=()=>send('theme',id);
 for(const [id,action]of [['desktop','desktop'],['startMenu','menu'],['launch','launch']])$(id).onchange=()=>send(action,$(id).checked?'1':'0');
 $('path').oninput=()=>send('path',$('path').value);
 $('keyField').onkeydown=e=>{if(!state.listening)return;e.preventDefault();send('key',[e.keyCode,(e.ctrlKey?2:0)|(e.shiftKey?4:0)|(e.altKey?1:0)].join(','))};
+keyField.onkeyup=e=>{if(state.listening&&e.key==='PrintScreen'){e.preventDefault();send('key','44,0')}};
 document.querySelector('header').onpointerdown=e=>{if(!e.target.closest('button'))send('drag')};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){send('escape');e.preventDefault()}});
 window.update(state);send('ready');

@@ -12,7 +12,7 @@ class InstallerWebHost {
 public:
     std::function<void(const std::wstring&)> message;
     static std::wstring quote(const std::wstring& text){std::wstring out=L"\"";for(wchar_t c:text){if(c==L'\\'||c==L'\"'){out+=L'\\';out+=c;}else if(c==L'\n')out+=L"\\n";else if(c==L'\r')out+=L"\\r";else if(c==L'\t')out+=L"\\t";else if(c<32){wchar_t escaped[7]{};swprintf_s(escaped,L"\\u%04x",static_cast<unsigned>(c));out+=escaped;}else out+=c;}return out+L"\"";}
-    void resize(){if(controller){RECT r{};GetClientRect(window,&r);controller->put_Bounds(r);controller->put_IsVisible(IsWindowVisible(window));}}
+    void resize(){if(controller){RECT r{};GetClientRect(window,&r);controller->put_Bounds(r);controller->put_IsVisible(TRUE);}}
     void update(const std::wstring& state){pending=state;if(ready&&web)web->ExecuteScript((L"window.update&&window.update("+state+L")").c_str(),nullptr);}
     void close(){if(controller)controller->Close();web.Reset();controller.Reset();environment.Reset();ready=false;}
     HRESULT start(HWND hwnd,HINSTANCE instance){

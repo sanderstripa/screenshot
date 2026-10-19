@@ -1,7 +1,7 @@
-# Screenshot v0.6.10 — remove installer button outer outline
+# Screenshot v0.7.1
 
-Removed the external focus outline from installer primary and secondary action buttons, including Continue. Pointer hover/press feedback and keyboard activation remain functional. No application or installation behavior changed.
+The installer now renders the original CONNECT installer HTML/CSS components in WebView2, using the same bundled Montserrat font. Language/theme controls, folder input, Browse button, switches, borders and colors use the CONNECT definitions directly. The application UI and capture engine are unchanged.
 
-Verified native Windows rendering in light/dark themes on welcome, installed, hotkey, Print Screen confirmation and ready stages, including keyboard-focused actions. Pixels outside primary and secondary button bounds match the background. Windows CI installation/update/uninstall and PNG checks pass.
+The settings action and final title/Done/launch switch follow CONNECT's vertical alignment. The folder field keeps its DOM node, selection and geometry during state updates. Installer theme/language choices continue to transfer to the application.
 
-Exact tested installer SHA-256: a3297d8dc5a32dbe5ed06f5923dca968ec8dbb21db5ff5e73f358141b4b39eda. Stable release reuses the tested v0.6.10-rc.1 bytes.
+Windows checks cover payload validity, installation/update over a running version, autostart, shortcuts, uninstall, PNG output/clipboard, actual WebView2 component parity, hotkey setup and launch with inherited appearance.

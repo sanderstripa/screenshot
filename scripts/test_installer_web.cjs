@@ -28,7 +28,7 @@ async function styles(page,selector){return page.locator(selector).first().evalu
   report[theme]={};for(const selector of ['#pathLabel','#path','#browse','#languageLabel','#themeLabel','#ru','#en','#light','#dark','.switch-row','.switch']){const actual=await styles(page,selector),expected=await styles(reference,selector);assert.deepStrictEqual(actual,expected,theme+' '+selector);report[theme][selector]=actual;}
   await page.screenshot({path:path.join(output,'settings-'+theme+'.png')});
  }
- const y=await page.locator('#accept').evaluate(e=>e.getBoundingClientRect().top);assert.strictEqual(y,387,'Accept vertical anchor');
+ const y=await page.locator('#accept').evaluate(e=>e.getBoundingClientRect().top);const vpnY=await reference.locator('#accept').evaluate(e=>e.getBoundingClientRect().top);console.log({accept:y,connect: vpnY});assert.strictEqual(y,vpnY,'Accept vertical anchor');
  // Repeated native state updates must preserve the input node, selection and geometry.
  const stable=await page.locator('#path').evaluate(async e=>{e.focus();e.setSelectionRange(2,5);const before=e.getBoundingClientRect().toJSON();for(let i=0;i<20;i++)window.chrome.webview.postMessage('ready\n');await new Promise(r=>setTimeout(r,300));return {same:e===document.querySelector('#path'),selection:[e.selectionStart,e.selectionEnd],before,after:e.getBoundingClientRect().toJSON()}});
  assert(stable.same);assert.deepStrictEqual(stable.selection,[2,5]);assert.deepStrictEqual(stable.before,stable.after);report.inputStability=stable;

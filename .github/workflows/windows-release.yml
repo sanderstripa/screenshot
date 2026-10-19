@@ -94,12 +94,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.7.1-rc.2"
+          $tag = "v0.7.1-rc.3"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.7.1-rc.2" `
+              --title "Screenshot v0.7.1-rc.3" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
               --prerelease
