@@ -25,6 +25,7 @@
 #include <shlguid.h>
 #include <servprov.h>
 #include <shobjidl.h>
+#include "installer_web_host.h"
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"dwrite.lib")
 #pragma comment(lib,"shell32.lib")
@@ -60,6 +61,8 @@ D2D1_RECT_F inputRect(){return D2D1::RectF(44,202,794,251);}
 struct Installer {
     HINSTANCE instance{};
     HWND hwnd{};
+    InstallerWebHost webHost;
+    std::wstring webPath;
     Step step = Welcome;
     Config config{};
     std::wstring status{};
@@ -85,7 +88,7 @@ struct Installer {
     std::wstring destination;
     HWND pathEdit{};HFONT pathFont{};HBRUSH pathBrush{};int pathDpi=-1;bool pathLight=false,pathCreating=false,pathShown=false;
     void syncPathEdit() {
-        if(!hwnd||pathCreating)return;
+        return; // CONNECT HTML replaces the native EDIT.
         const bool created=!pathEdit;
         if(created){
             pathCreating=true;
@@ -108,7 +111,7 @@ struct Installer {
     }
     bool acceptPath() {
         wchar_t raw[32768]{},expanded[32768]{},full[32768]{};
-        if(pathEdit)GetWindowTextW(pathEdit,raw,32768);else wcscpy_s(raw,installDirectory().c_str());
+        wcscpy_s(raw,webPath.empty()?installDirectory().c_str():webPath.c_str());
         const DWORD length=ExpandEnvironmentStringsW(raw,expanded,32768);
         if(!length||length>32768||!std::filesystem::path(expanded).is_absolute()||wcslen(expanded)>230||wcspbrk(expanded,L"\"<>|*?")){
             showNotice(tr(L"Укажите полный путь к папке установки.",L"Enter an absolute installation folder path."));return false;
@@ -126,10 +129,10 @@ struct Installer {
         if(FAILED(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&dialog))))return;
         DWORD options=0;dialog->GetOptions(&options);dialog->SetOptions(options|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM|FOS_NOCHANGEDIR);
         dialog->SetTitle(tr(L"Папка установки Screenshot",L"Screenshot installation folder"));
-        ComPtr<IShellItem> initial;wchar_t current[32768]{};GetWindowTextW(pathEdit,current,32768);
+        ComPtr<IShellItem> initial;wchar_t current[32768]{};wcscpy_s(current,webPath.c_str());
         if(SUCCEEDED(SHCreateItemFromParsingName(current,nullptr,IID_PPV_ARGS(&initial))))dialog->SetFolder(initial.Get());
         if(SUCCEEDED(dialog->Show(hwnd))){ComPtr<IShellItem> result;PWSTR path=nullptr;
-            if(SUCCEEDED(dialog->GetResult(&result))&&SUCCEEDED(result->GetDisplayName(SIGDN_FILESYSPATH,&path))){SetWindowTextW(pathEdit,path);CoTaskMemFree(path);}}
+            if(SUCCEEDED(dialog->GetResult(&result))&&SUCCEEDED(result->GetDisplayName(SIGDN_FILESYSPATH,&path))){webPath=path;CoTaskMemFree(path);redraw();}}
     }
     bool saveAppearance() {
         HKEY key{};if(RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\SanderStripa\\Screenshot",0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
@@ -217,7 +220,7 @@ struct Installer {
         if(keyboardFocus&&(focused==10||focused==11))outline(D2D1::RectF(focused==10?725.0f:767.0f,20,focused==10?753.0f:795.0f,50),5,mutedInk());
         brush->SetColor(edge());target->DrawLine(D2D1::Point2F(44,490),D2D1::Point2F(794,490),brush.Get());
         label(L"by CONNECT.",44,510,250,20,smallText.Get(),mutedInk());
-        label(tr(L"Версия 0.6.10",L"Version 0.6.10"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
+        label(tr(L"Версия 0.7.1",L"Version 0.7.1"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
         rounded(rect,10,D2D1::ColorF(light?0x242A28:0xE3E4DF));
@@ -370,7 +373,42 @@ struct Installer {
         if(hr==D2DERR_RECREATE_TARGET){artwork.Reset();brush.Reset();target.Reset();}
         EndPaint(hwnd,&ps);
     }
-    void redraw() { syncPathEdit();InvalidateRect(hwnd,nullptr,FALSE); }
+    void redraw() {
+        if(!hwnd)return;
+        auto b=[](bool value)->std::wstring{return value?L"true":L"false";};auto q=InstallerWebHost::quote;
+        std::wstring json=L"{\"stage\":"+std::to_wstring(step)+L",\"preferences\":"+b(preferences)+L",\"english\":"+b(english)+L",\"light\":"+b(light);
+        json+=L",\"path\":"+q(webPath.empty()?installDirectory():webPath)+L",\"key\":"+q(config.title)+L",\"desktop\":"+b(desktopShortcut)+L",\"menu\":"+b(startMenuShortcut)+L",\"launch\":"+b(openAfter);
+        json+=L",\"version\":\"0.7.1\",\"listening\":"+b(listening)+L",\"progress\":"+std::to_wstring(progress.load())+L",\"relogin\":"+b(needsRelogin)+L",\"notice\":"+q(notice)+L",\"failure\":"+q(result.load()==1?failureDetail:L"")+L",\"working\":"+b(working.load())+L"}";webHost.update(json);
+    }
+    void webAction(const std::wstring& message) {
+        auto split=message.find(L'\n');auto action=message.substr(0,split);auto value=split==std::wstring::npos?L"":message.substr(split+1);
+        if(action==L"ready"){redraw();return;}
+        if(action==L"minimize"){ShowWindow(hwnd,SW_MINIMIZE);return;}
+        if(action==L"close"){SendMessageW(hwnd,WM_CLOSE,0,0);return;}
+        if(action==L"drag"){ReleaseCapture();SendMessageW(hwnd,WM_NCLBUTTONDOWN,HTCAPTION,0);return;}
+        if(working)return;
+        if(action==L"path"){webPath=value;return;}
+        if(action==L"language")english=value==L"en";
+        else if(action==L"theme"){light=value==L"light";themeMode=light?1:2;theme();}
+        else if(action==L"desktop")desktopShortcut=value==L"1";
+        else if(action==L"menu")startMenuShortcut=value==L"1";
+        else if(action==L"launch")openAfter=value==L"1";
+        else if(action==L"settings"&&step==Welcome)preferences=true;
+        else if(action==L"back")preferences=false;
+        else if(action==L"browse")browsePath();
+        else if(action==L"install"&&step==Welcome){preferences=false;startInstallation();}
+        else if(action==L"continue"&&step==Installed)step=Hotkey;
+        else if(action==L"listen"&&step==Hotkey)listening=true;
+        else if(action==L"key"&&listening){unsigned vk=0,mod=0;if(swscanf_s(value.c_str(),L"%u,%u",&vk,&mod)==2)choose(vk,mod&(MOD_CONTROL|MOD_SHIFT|MOD_ALT));}
+        else if(action==L"next"&&step==Hotkey){if(config.vk==VK_SNAPSHOT&&config.mod==0)step=Confirm;else if(verifyHotkey())activateHotkey();else showNotice(tr(L"Клавиша занята.",L"Shortcut is in use."));}
+        else if(action==L"replace"&&step==Confirm)activateHotkey();
+        else if(action==L"cancel"&&step==Confirm)step=Hotkey;
+        else if(action==L"notice")notice.clear();
+        else if(action==L"retry"&&result.load()==1)startInstallation();
+        else if(action==L"escape"){listening=false;notice.clear();preferences=false;}
+        else if(action==L"done"&&step==Ready){if(!openAfter||launchBackground(true))DestroyWindow(hwnd);else showNotice(tr(L"Не удалось открыть Screenshot.",L"Could not open Screenshot."));}
+        redraw();
+    }
     bool saveConfig() {
         HKEY key=nullptr;
         if(RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\SanderStripa\\Screenshot",0,
@@ -558,7 +596,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.10") &&
+            writeString(key,L"DisplayVersion",L"0.7.1") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -816,8 +854,8 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
         case WM_CTLCOLOREDIT:if(reinterpret_cast<HWND>(l)==s->pathEdit){SetTextColor(reinterpret_cast<HDC>(w),s->light?RGB(32,38,36):RGB(237,237,233));SetBkColor(reinterpret_cast<HDC>(w),s->light?RGB(235,233,228):RGB(41,43,44));return reinterpret_cast<LRESULT>(s->pathBrush);}break;
         case WM_SETTINGCHANGE:if(s->themeMode==0){s->light=ConnectUI::systemLight();s->theme();}return 0;
         case WM_SIZE:
-            s->artwork.Reset();s->brush.Reset();s->target.Reset();s->redraw();return 0;
-        case WM_PAINT:s->paint();return 0;
+            s->webHost.resize();s->redraw();return 0;
+        case WM_PAINT:{PAINTSTRUCT ps{};BeginPaint(hwnd,&ps);EndPaint(hwnd,&ps);return 0;}
         case WM_ERASEBKGND:return 1;
         case WM_INSTALL_COMPLETE:
             if(s->result.load()==0)s->step=Installed;
@@ -948,6 +986,10 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     setup.theme();
     MARGINS margins{1,1,1,1};DwmExtendFrameIntoClientArea(hwnd,&margins);
     SetWindowPos(hwnd,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
+    setup.webPath=setup.installDirectory();
+    setup.webHost.message=[&setup](const std::wstring& text){setup.webAction(text);};
+    setup.webHost.start(hwnd,instance);
+    setup.redraw();
     ShowWindow(hwnd,show==SW_HIDE?SW_SHOWNORMAL:show);
     UpdateWindow(hwnd);
     MSG message{};
@@ -957,6 +999,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     }
     // Do not free Installer before the background worker exits.
     if(setup.worker.joinable())setup.worker.join();
+    setup.webHost.close();
     setup.brush.Reset();setup.target.Reset();
     if(setup.icon)DestroyIcon(setup.icon);
     if(setup.largeIcon)DestroyIcon(setup.largeIcon);

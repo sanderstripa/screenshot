@@ -1,0 +1,15 @@
+/* CONNECT components are unchanged. Only Screenshot-specific stages and
+   the requested common vertical action anchors are added here. */
+#settings{position:relative}#accept{position:absolute;left:0;top:320px;margin-top:0}
+#finish,.result{position:relative;display:flex;flex-direction:column;align-items:center;padding:0;justify-content:flex-start!important}
+#finish h1,.result h1{position:absolute;top:52px;margin:0}
+#readyTitle,#success{position:absolute;top:115px;font-size:14px;margin:0}
+#done,#continue{position:absolute;top:232px}
+#launchRow{position:absolute;top:294px;margin-top:0}
+.finish-details{position:absolute;top:161px;text-align:center;width:100%;font-size:14px;line-height:1.6;color:var(--muted)}.finish-details p{margin:0 0 14px}.finish-details .hint{margin:0}
+#nextHint{position:absolute;top:298px;margin:0}
+#hotkey h2{margin-top:12px}.description{font-size:14px;line-height:1.8;color:var(--muted);margin:18px 0 24px}.key-field{display:block;width:100%;height:49px;border:1px solid var(--line);border-radius:6px;background:var(--field);text-align:center;font-size:14px;margin:28px 0 14px}#next{float:right;margin-top:28px}
+#confirm{display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:25px}#confirm .description{text-align:center}.actions{display:flex;gap:14px}.actions .outlined{height:49px;min-width:130px}
+#notice{position:absolute;inset:36px 0 60px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}#noticeText{font-size:14px;line-height:1.7;white-space:pre-line;margin:24px 0}
+/* The user explicitly requested action buttons without outer focus rings. */
+.primary:focus-visible,.outlined:focus-visible{outline:none}
