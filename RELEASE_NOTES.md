@@ -1,11 +1,7 @@
-# Screenshot v0.6.9 — VPN installer settings and stable path editing
+# Screenshot v0.6.10 — remove installer button outer outline
 
-- Matched installer settings to CONNECT installer CSS: 12px semibold Language/Theme labels, 11px regular choices, 13px shortcut labels/Back, correct heading alignment, selection borders and measured RU/EN control bounds.
-- Confirmed the Montserrat font is the exact VPN installer asset (Git blob c97aca18592834d8706549c279cb8d5ac5d85f69). Existing installer palette already matches the reference CSS and is retained.
-- Removed the extra language/appearance explanation and installer System choice. The application's existing System theme remains available.
-- Fixed path field flicker/jumping: no repeated move/show/erase operations on mouse movement. Refresh happens only on actual DPI/theme/visibility changes; the parent clips child controls.
-- Preserved folder selection, shortcuts, update/uninstall and first-launch theme/language inheritance.
+Removed the external focus outline from installer primary and secondary action buttons, including Continue. Pointer hover/press feedback and keyboard activation remain functional. No application or installation behavior changed.
 
-Windows validation: settings in both themes and languages, 100 mouse-move messages per case with unchanged editor bounds/selection; native screenshots inspected. Actual custom-path install/update, launch via Unicode shortcut, appearance inheritance, custom uninstall, unrelated-file preservation and default clean reinstall. Windows CI validates installation/update/autostart/uninstall and PNG/clipboard.
+Verified native Windows rendering in light/dark themes on welcome, installed, hotkey, Print Screen confirmation and ready stages, including keyboard-focused actions. Pixels outside primary and secondary button bounds match the background. Windows CI installation/update/uninstall and PNG checks pass.
 
-Exact tested v0.6.9-rc.2 installer SHA-256: d3b1acd89a3383418955ec6e650320301de5f9bf7be52cbb369589d967175be0. Stable reuses these bytes.
+Exact tested installer SHA-256: a3297d8dc5a32dbe5ed06f5923dca968ec8dbb21db5ff5e73f358141b4b39eda. Stable release reuses the tested v0.6.10-rc.1 bytes.

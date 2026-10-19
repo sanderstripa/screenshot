@@ -133,3 +133,6 @@ Native folder picker/cancel and editable folder tested with WM_SETTEXT/WM_GETTEX
 
 ## v0.6.9 — installer settings parity and stable edit
 Reference cmd/installer/web/style.css from CONNECT main; exact font blob c97aca18592834d8706549c279cb8d5ac5d85f69. Control bounds measured from CSS render in RU and EN; native screenshots reviewed in both themes/languages. Stable path checks send 100 mouse moves and assert unchanged editor rectangle and selection. Source avoids repeated SetWindowPos/ShowWindow/erase invalidation on hover and uses WS_CLIPCHILDREN. Folder/appearance/shortcut install flows repeated on final candidate. Stable hash d3b1acd89a3383418955ec6e650320301de5f9bf7be52cbb369589d967175be0. No claim of pixel-identical antialiasing between browser and native renderers.
+
+## v0.6.10 — remove action-button external outline
+PASS native preview on five interactive stages x two themes x two keyboard focus positions. Outside-button pixels match background for both primary and confirmation secondary actions. Installed dark English Continue screenshot visually reviewed. Candidate SHA-256 a3297d8dc5a32dbe5ed06f5923dca968ec8dbb21db5ff5e73f358141b4b39eda; stable reuses exact tested bytes. No application logic changed.
