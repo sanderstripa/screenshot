@@ -10,7 +10,7 @@ async function styles(page,selector){return page.locator(selector).first().evalu
  await page.waitForFunction(()=>document.querySelector('#version').textContent.includes('0.7.1'));
  await page.evaluate(()=>document.fonts.ready);if(await page.locator('#settingsButton').isVisible())await page.locator('#settingsButton').click();
  await page.locator('#settings').waitFor({state:'visible'});
- const ref=JSON.parse(fs.readFileSync('test-results/vpn-reference.json','utf8'));
+ const ref=JSON.parse(fs.readFileSync('scripts/fixtures/connect-installer.json','utf8'));
  const chrome=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});const reference=await chrome.newPage({viewport:{width:840,height:540}});
  await reference.route('https://vpn.reference/**',async route=>{
   const url=new URL(route.request().url());if(url.pathname.endsWith('Montserrat.ttf'))return route.fulfill({body:fs.readFileSync('assets/fonts/Montserrat.ttf'),contentType:'font/ttf'});

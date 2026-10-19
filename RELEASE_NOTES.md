@@ -5,3 +5,5 @@ The installer now renders the original CONNECT installer HTML/CSS components in 
 The settings action and final title/Done/launch switch follow CONNECT's vertical alignment. The folder field keeps its DOM node, selection and geometry during state updates. Installer theme/language choices continue to transfer to the application.
 
 Windows checks cover payload validity, installation/update over a running version, autostart, shortcuts, uninstall, PNG output/clipboard, actual WebView2 component parity, hotkey setup and launch with inherited appearance.
+
+Stable release reuses the exact Windows-tested v0.7.1-rc.3 installer. SHA-256: `8866e42d1cc22552b8b1674f626ce90ee0be4bf2161a696c0933a1eb6d8edcb4`.
