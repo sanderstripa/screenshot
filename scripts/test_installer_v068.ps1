@@ -58,7 +58,7 @@ function Run-Install([string]$target,[bool]$dark,[bool]$en,[bool]$picker=$false)
   $run=Get-ItemPropertyValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' Screenshot
   if(!$run.StartsWith('"'+(Join-Path $target 'Screenshot.exe')+'"')){throw 'Autostart points to wrong path'}
   $shell=New-Object -ComObject WScript.Shell
-  foreach($folder in 'Programs','Desktop'){$linkFile=Join-Path ([Environment]::GetFolderPath($folder)) 'Screenshot.lnk';if([ShortcutReader]::Target($linkFile) -ne (Join-Path $target 'Screenshot.exe')){throw 'Shortcut points to wrong target'}}
+  foreach($folder in 'Programs','Desktop'){$linkFile=Join-Path ([Environment]::GetFolderPath($folder)) 'Screenshot.lnk';if(!(Test-Path $linkFile)){throw "Shortcut missing: $folder"};if([ShortcutReader]::Target($linkFile) -ne (Join-Path $target 'Screenshot.exe')){throw 'Shortcut points to wrong target'}}
   if(!(Get-ItemPropertyValue $uninstall UninstallString).Contains((Join-Path $target 'Uninstall.exe'))){throw 'Wrong uninstall path'}
   Click $h 420 294;Stop-Worker;Click $h 120 220;[SettingsNative]::PostMessage($h,0x100,[IntPtr]0x86,[IntPtr]::Zero)|Out-Null
   Start-Sleep -Milliseconds 150;Click $h 650 350;Start-Sleep -Milliseconds 600;Click $h 420 360

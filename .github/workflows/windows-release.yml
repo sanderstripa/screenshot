@@ -94,15 +94,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v0.6.9-rc.2"
+          gh release download v0.6.9-rc.2 --repo "${{ github.repository }}" --pattern Screenshot-Setup.exe --dir verified-release
+          if ($LASTEXITCODE -ne 0) { throw "Tested candidate download failed" }
+          $expected = "d3b1acd89a3383418955ec6e650320301de5f9bf7be52cbb369589d967175be0"
+          if ((Get-FileHash verified-release/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $expected) { throw "Tested candidate hash mismatch" }
+          Copy-Item verified-release/Screenshot-Setup.exe dist/Screenshot-Setup.exe -Force
+          $tag = "v0.6.9"
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag "dist/Screenshot-Setup.exe" `
               --repo "${{ github.repository }}" `
-              --title "Screenshot v0.6.9 candidate" `
+              --title "Screenshot v0.6.9" `
               --notes-file "RELEASE_NOTES.md" `
               --target "${{ github.sha }}" `
-              --prerelease
+              --latest
             if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
           }
 

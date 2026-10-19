@@ -4,7 +4,7 @@
 
 # About Screenshot
 
-**Screenshot** · v0.6.8 · Windows 11 x64
+**Screenshot** · v0.6.9 · Windows 11 x64
 
 Capture a visible window or screen region with a single keyboard shortcut. The resulting PNG, including soft shadow and subtle corner rounding, is saved to `%USERPROFILE%\Pictures\Screenshot` and copied to the clipboard.
 
@@ -12,7 +12,7 @@ The app uses native C++17, Win32, Direct2D, DirectWrite and Windows Imaging Comp
 
 The setup program has light and dark Windows UI themes and System/Light/Dark and RU/EN controls inside settings. It directly installs the application under the current user's profile, supports safe upgrade over a running previous version, and lets the user assign a hotkey after installation.
 
-Version 0.6.8 adds an editable installation directory with a native folder picker. The app inherits the theme and language chosen in setup on its first launch. Launch, shortcuts, autostart and uninstall follow the selected location.
+Version 0.6.9 aligns installer settings with CONNECT typography, control sizes and spacing, removes the extra explanatory line and fixes path-field flicker during pointer movement. Custom installation folders and first-launch theme/language inheritance are retained.
 
 Screenshot includes the supplied Screenshot artwork in the application, installer and uninstaller: nine Windows icon resolutions and a full-resolution PNG for the installer. Windows refreshes its icon cache after installation to show the updated artwork.
 

@@ -1,10 +1,11 @@
-# Screenshot v0.6.8 — installation folder and first-launch preferences
+# Screenshot v0.6.9 — VPN installer settings and stable path editing
 
-- Installation settings now show an editable destination and a native Browse folder picker. Updates default to the registered installation folder.
-- Installation, launch, Desktop/Start menu shortcuts, autostart and uninstall use the selected location. Relocation removes only the old Screenshot executable/uninstaller; unrelated files are retained.
-- The installer saves System/Light/Dark, its effective light state and RU/EN before the application starts. The first application window inherits these choices; they remain editable inside the app.
-- The application UI/capture implementation is unchanged.
+- Matched installer settings to CONNECT installer CSS: 12px semibold Language/Theme labels, 11px regular choices, 13px shortcut labels/Back, correct heading alignment, selection borders and measured RU/EN control bounds.
+- Confirmed the Montserrat font is the exact VPN installer asset (Git blob c97aca18592834d8706549c279cb8d5ac5d85f69). Existing installer palette already matches the reference CSS and is retained.
+- Removed the extra language/appearance explanation and installer System choice. The application's existing System theme remains available.
+- Fixed path field flicker/jumping: no repeated move/show/erase operations on mouse movement. Refresh happens only on actual DPI/theme/visibility changes; the parent clips child controls.
+- Preserved folder selection, shortcuts, update/uninstall and first-launch theme/language inheritance.
 
-Windows verification: native folder picker/cancel, custom directory with spaces and Cyrillic, repeated update there, real Unicode Start menu shortcut launch, dark/English and light/Russian first launch, autostart/uninstall registration, custom-path uninstall, unrelated-file preservation, return to default directory and clean reinstall. Windows CI verifies install/update/autostart/uninstall and PNG/clipboard.
+Windows validation: settings in both themes and languages, 100 mouse-move messages per case with unchanged editor bounds/selection; native screenshots inspected. Actual custom-path install/update, launch via Unicode shortcut, appearance inheritance, custom uninstall, unrelated-file preservation and default clean reinstall. Windows CI validates installation/update/autostart/uninstall and PNG/clipboard.
 
-Exact locally tested v0.6.8-rc.3 installer SHA-256: 93484348cccbb12c6e3afab0f65511012dcfb26b85d02f1b9328e53b941c0340. Stable release reuses these bytes.
+Exact tested v0.6.9-rc.2 installer SHA-256: d3b1acd89a3383418955ec6e650320301de5f9bf7be52cbb369589d967175be0. Stable reuses these bytes.
