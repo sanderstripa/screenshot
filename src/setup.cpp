@@ -263,16 +263,21 @@ struct Installer {
                 D2D1::Point2F(x+23,y-17),brush.Get(),4);
         }
     }
+    D2D1_RECT_F preferenceRect(int id) const {
+        if(id==6)return english?D2D1::RectF(123.328f,116,160,144):D2D1::RectF(93.828f,116,130.5f,144);
+        if(id==7)return english?D2D1::RectF(163,116,199.313f,144):D2D1::RectF(133.5f,116,169.813f,144);
+        if(id==4)return english?D2D1::RectF(338.359f,116,387.234f,144):D2D1::RectF(297.078f,116,363.078f,144);
+        return english?D2D1::RectF(390.234f,116,436.719f,144):D2D1::RectF(366.078f,116,427.938f,144);
+    }
     void content() {
         if(preferences) {
             label(tr(L"Настройки установки",L"Installation settings"),44,68,650,38,medium.Get(),ink());
             label(tr(L"Назад",L"Back"),730,75,64,24,linkFont.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
             label(tr(L"Язык",L"Language"),44,122,72,24,settingFont.Get(),ink());
-            const float languageX=english?118.0f:94.0f;
-            choice(D2D1::RectF(languageX,116,languageX+36,144),L"RU",!english,6);choice(D2D1::RectF(languageX+40,116,languageX+76,144),L"EN",english,7);
-            label(tr(L"Тема",L"Theme"),249,122,50,24,settingFont.Get(),ink());
-            choice(D2D1::RectF(297,116,363,144),tr(L"Светлая",L"Light"),themeMode==1,4);
-            choice(D2D1::RectF(367,116,433,144),tr(L"Тёмная",L"Dark"),themeMode==2,5);
+            choice(preferenceRect(6),L"RU",!english,6);choice(preferenceRect(7),L"EN",english,7);
+            label(tr(L"Тема",L"Theme"),english?279.313f:249.813f,122,50,24,settingFont.Get(),ink());
+            choice(preferenceRect(4),tr(L"Светлая",L"Light"),themeMode==1,4);
+            choice(preferenceRect(5),tr(L"Тёмная",L"Dark"),themeMode==2,5);
             label(tr(L"Папка установки",L"Installation folder"),44,162,650,24,detailFont.Get(),ink());
             rounded(D2D1::RectF(44,185,692,220),6,D2D1::ColorF(light?0xEBE9E4:0x292B2C));outline(D2D1::RectF(44,185,692,220),6,edge());
             outline(D2D1::RectF(702,185,794,220),6,edge());
@@ -706,9 +711,7 @@ struct Installer {
         if(preferences){
             if(inside(p,D2D1::RectF(702,185,794,220)))return 16;
             if(inside(p,D2D1::RectF(44,185,692,220)))return 15;
-            const float languageX=english?118.0f:94.0f;
-            if(inside(p,D2D1::RectF(languageX,116,languageX+36,144)))return 6;if(inside(p,D2D1::RectF(languageX+40,116,languageX+76,144)))return 7;
-            if(inside(p,D2D1::RectF(297,116,363,144)))return 4;if(inside(p,D2D1::RectF(367,116,433,144)))return 5;
+            for(int id:{6,7,4,5})if(inside(p,preferenceRect(id)))return id;
             if(inside(p,D2D1::RectF(44,236,600,270)))return 12;if(inside(p,D2D1::RectF(44,274,600,308)))return 13;
             if(inside(p,D2D1::RectF(44,312,304,361)))return 1;return inside(p,D2D1::RectF(720,68,794,104))?2:-1;
         }
@@ -732,6 +735,7 @@ struct Installer {
         focused=ids[(index+(reverse?static_cast<int>(ids.size())-1:1)+static_cast<int>(ids.size()))%ids.size()];redraw();
     }
     void activateFocused() {
+        if(preferences&&(focused==6||focused==7||focused==4||focused==5)){auto r=preferenceRect(focused);nextClick(POINT{int((r.left+r.right)/2),130});return;}
         POINT p{};
         if(focused==10)p={740,36};else if(focused==11)p={780,36};else if(focused==20)p={660,374};
         else if(preferences){switch(focused){case 6:p={english?136:112,130};break;case 7:p={english?176:152,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 15:SetFocus(pathEdit);return;case 16:p={750,202};break;case 12:p={60,253};break;case 13:p={60,291};break;case 1:p={170,338};break;default:p={760,85};}}

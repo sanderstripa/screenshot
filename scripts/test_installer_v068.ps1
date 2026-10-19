@@ -46,11 +46,11 @@ function Run-Install([string]$target,[bool]$dark,[bool]$en,[bool]$picker=$false)
   if(![PathNative]::SetWindowText($edit,$target)){throw 'Could not set folder edit text'}
   $entered=[Text.StringBuilder]::new(32768);[PathNative]::GetWindowText($edit,$entered,32768)|Out-Null
   if($entered.ToString() -ne $target){throw "Folder edit differs: $entered"}
-  Click $h $(if($dark){400}else{330}) 130;Click $h $(if($en){176}else{136}) 130
+  Click $h $(if($dark){400}else{330}) 130;Click $h $(if($en){152}else{112}) 130
   $entered.Clear()|Out-Null;[PathNative]::GetWindowText([PathNative]::GetDlgItem($h,1001),$entered,32768)|Out-Null
   if($entered.ToString() -ne $target){throw "Folder changed after theme/language: $entered"}
   Shot $h "preferences-$dark-$en"|Out-Null
-  Click $h 170 380;Start-Sleep -Seconds 4
+  Click $h 170 338;Start-Sleep -Seconds 4
   Shot $h 'after-start'|Out-Null
   $actual=Get-ItemPropertyValue $uninstall InstallLocation
   if($actual -ne $target -or !(Test-Path (Join-Path $target 'Screenshot.exe'))){throw "Incorrect installation target $actual"}
