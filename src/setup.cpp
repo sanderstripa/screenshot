@@ -83,10 +83,11 @@ struct Installer {
     bool needsRelogin = false;
     bool desktopShortcut=true,startMenuShortcut=true,openAfter=true;
     std::wstring destination;
-    HWND pathEdit{};HFONT pathFont{};HBRUSH pathBrush{};int pathDpi=-1;bool pathLight=false,pathCreating=false;
+    HWND pathEdit{};HFONT pathFont{};HBRUSH pathBrush{};int pathDpi=-1;bool pathLight=false,pathCreating=false,pathShown=false;
     void syncPathEdit() {
         if(!hwnd||pathCreating)return;
-        if(!pathEdit){
+        const bool created=!pathEdit;
+        if(created){
             pathCreating=true;
             if(!fontPath.empty())AddFontResourceExW(fontPath.c_str(),FR_PRIVATE,nullptr);
             pathEdit=CreateWindowExW(0,L"EDIT",installDirectory().c_str(),WS_CHILD|WS_TABSTOP|ES_AUTOHSCROLL,
@@ -94,12 +95,16 @@ struct Installer {
             pathCreating=false;
             SendMessageW(pathEdit,EM_SETLIMITTEXT,230,0);
         }
-        if(pathDpi!=int(scale*96)){if(pathFont)DeleteObject(pathFont);
+        const bool dpiChanged=pathDpi!=int(scale*96);
+        const bool colorChanged=!pathBrush||pathLight!=light;
+        if(dpiChanged){if(pathFont)DeleteObject(pathFont);
         pathFont=CreateFontW(-int(12*scale),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Montserrat");
         SendMessageW(pathEdit,WM_SETFONT,reinterpret_cast<WPARAM>(pathFont),TRUE);pathDpi=int(scale*96);}
-        if(!pathBrush||pathLight!=light){if(pathBrush)DeleteObject(pathBrush);pathBrush=CreateSolidBrush(light?RGB(235,233,228):RGB(41,43,44));pathLight=light;}
-        SetWindowPos(pathEdit,nullptr,int(57*scale),int(193*scale),int(620*scale),int(20*scale),SWP_NOZORDER|SWP_NOACTIVATE);
-        ShowWindow(pathEdit,preferences&&notice.empty()?SW_SHOWNOACTIVATE:SW_HIDE);InvalidateRect(pathEdit,nullptr,TRUE);
+        if(colorChanged){if(pathBrush)DeleteObject(pathBrush);pathBrush=CreateSolidBrush(light?RGB(235,233,228):RGB(41,43,44));pathLight=light;}
+        if(created||dpiChanged)SetWindowPos(pathEdit,nullptr,int(57*scale),int(193*scale),int(620*scale),int(20*scale),SWP_NOZORDER|SWP_NOACTIVATE);
+        const bool show=preferences&&notice.empty();
+        if(pathShown!=show){ShowWindow(pathEdit,show?SW_SHOWNOACTIVATE:SW_HIDE);pathShown=show;}
+        if(created||dpiChanged||colorChanged)InvalidateRect(pathEdit,nullptr,FALSE);
     }
     bool acceptPath() {
         wchar_t raw[32768]{},expanded[32768]{},full[32768]{};
@@ -138,7 +143,7 @@ struct Installer {
     ComPtr<ID2D1PathGeometry> settingsIcon;
     std::thread worker;
     ComPtr<IDWriteFactory> fonts;
-    ComPtr<IDWriteTextFormat> regular, medium, smallText, headline, actionFont, detailFont, eyebrowFont;
+    ComPtr<IDWriteTextFormat> regular, medium, smallText, headline, actionFont, detailFont, eyebrowFont, choiceFont, settingFont, switchFont, linkFont;
     ComPtr<FontLoader> fontLoader;
     ComPtr<IDWriteFontCollection> collection;
     std::wstring fontPath;
@@ -170,7 +175,8 @@ struct Installer {
         return create(14,DWRITE_FONT_WEIGHT_NORMAL,regular)&&create(23,DWRITE_FONT_WEIGHT_MEDIUM,medium)
             &&create(10,DWRITE_FONT_WEIGHT_NORMAL,smallText)&&create(42,DWRITE_FONT_WEIGHT_MEDIUM,headline)
             &&create(14,DWRITE_FONT_WEIGHT_SEMI_BOLD,actionFont)&&create(12,DWRITE_FONT_WEIGHT_NORMAL,detailFont)
-            &&create(12,DWRITE_FONT_WEIGHT_SEMI_BOLD,eyebrowFont);
+            &&create(12,DWRITE_FONT_WEIGHT_SEMI_BOLD,eyebrowFont)&&create(11,DWRITE_FONT_WEIGHT_NORMAL,choiceFont)
+            &&create(12,DWRITE_FONT_WEIGHT_SEMI_BOLD,settingFont)&&create(13,DWRITE_FONT_WEIGHT_NORMAL,switchFont)&&create(13,DWRITE_FONT_WEIGHT_NORMAL,linkFont);
     }
 
     void fill(D2D1_RECT_F rect,D2D1_COLOR_F c) {
@@ -211,7 +217,7 @@ struct Installer {
         if(keyboardFocus&&(focused==10||focused==11))outline(D2D1::RectF(focused==10?725.0f:767.0f,20,focused==10?753.0f:795.0f,50),5,mutedInk());
         brush->SetColor(edge());target->DrawLine(D2D1::Point2F(44,490),D2D1::Point2F(794,490),brush.Get());
         label(L"by CONNECT.",44,510,250,20,smallText.Get(),mutedInk());
-        label(tr(L"Версия 0.6.8",L"Version 0.6.8"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
+        label(tr(L"Версия 0.6.9",L"Version 0.6.9"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
         rounded(rect,10,D2D1::ColorF(light?0x242A28:0xE3E4DF));
@@ -230,10 +236,9 @@ struct Installer {
         regular->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     }
     void choice(D2D1_RECT_F rect,const wchar_t* value,bool selected,int id,int =-1) {
-        if(selected){rounded(rect,5,D2D1::ColorF(light?0xEBE9E4:0x292B2C));outline(rect,5,mutedInk());}
-        detailFont->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
-        label(value,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,detailFont.Get(),ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
-        detailFont->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        if(selected){rounded(rect,5,D2D1::ColorF(light?0xEBE9E4:0x292B2C));outline(D2D1::RectF(rect.left+.5f,rect.top+.5f,rect.right-.5f,rect.bottom-.5f),4.5f,mutedInk());}
+        choiceFont->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        label(value,rect.left,rect.top,rect.right-rect.left,rect.bottom-rect.top,choiceFont.Get(),ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
         if(keyboardFocus&&focused==id)outline(rect,5,mutedInk(),2);
     }
     void toggle(float x,float y,const wchar_t* text,bool checked,int id,bool compact=false) {
@@ -241,7 +246,7 @@ struct Installer {
         if(!checked)outline(D2D1::RectF(x,y,x+38,y+22),11,mutedInk());
         brush->SetColor(checked?D2D1::ColorF(light?0xFFFFFF:0x202122):mutedInk());
         target->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x+(checked?27:11),y+11),7,7),brush.Get());
-        label(text,x+51,y+2,450,24,compact?detailFont.Get():regular.Get(),ink());
+        label(text,x+51,y+2,450,24,compact?detailFont.Get():switchFont.Get(),ink());
         if(keyboardFocus&&focused==id)outline(D2D1::RectF(x-3,y-3,x+41,y+25),14,mutedInk(),2);
     }
     void ring(float x,float y,bool warning=false,bool green=false) {
@@ -261,21 +266,20 @@ struct Installer {
     void content() {
         if(preferences) {
             label(tr(L"Настройки установки",L"Installation settings"),44,68,650,38,medium.Get(),ink());
-            label(tr(L"Назад",L"Back"),730,75,64,24,detailFont.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
-            label(tr(L"Язык",L"Language"),44,122,72,24,detailFont.Get(),ink());
-            choice(D2D1::RectF(118,116,154,144),L"RU",!english,6);choice(D2D1::RectF(158,116,194,144),L"EN",english,7);
-            label(tr(L"Тема",L"Theme"),250,122,50,24,detailFont.Get(),ink());
+            label(tr(L"Назад",L"Back"),730,75,64,24,linkFont.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
+            label(tr(L"Язык",L"Language"),44,122,72,24,settingFont.Get(),ink());
+            const float languageX=english?118.0f:94.0f;
+            choice(D2D1::RectF(languageX,116,languageX+36,144),L"RU",!english,6);choice(D2D1::RectF(languageX+40,116,languageX+76,144),L"EN",english,7);
+            label(tr(L"Тема",L"Theme"),249,122,50,24,settingFont.Get(),ink());
             choice(D2D1::RectF(297,116,363,144),tr(L"Светлая",L"Light"),themeMode==1,4);
             choice(D2D1::RectF(367,116,433,144),tr(L"Тёмная",L"Dark"),themeMode==2,5);
-            choice(D2D1::RectF(437,116,510,144),tr(L"Система",L"System"),themeMode==0,3);
-            label(tr(L"Папка установки",L"Installation folder"),44,162,650,24,detailFont.Get(),mutedInk());
+            label(tr(L"Папка установки",L"Installation folder"),44,162,650,24,detailFont.Get(),ink());
             rounded(D2D1::RectF(44,185,692,220),6,D2D1::ColorF(light?0xEBE9E4:0x292B2C));outline(D2D1::RectF(44,185,692,220),6,edge());
             outline(D2D1::RectF(702,185,794,220),6,edge());
             label(tr(L"Выбрать…",L"Browse…"),702,194,92,24,detailFont.Get(),ink(),DWRITE_TEXT_ALIGNMENT_CENTER);
             toggle(44,242,tr(L"Ярлык на рабочем столе",L"Desktop shortcut"),desktopShortcut,12);
             toggle(44,280,tr(L"Ярлык в меню «Пуск»",L"Start menu shortcut"),startMenuShortcut,13);
-            label(tr(L"Язык и оформление будут применены к приложению.",L"Language and appearance will also apply to the application."),44,318,750,25,smallText.Get(),mutedInk());
-            button(D2D1::RectF(44,355,304,404),tr(L"Принять и установить",L"Accept and install"));return;
+            button(D2D1::RectF(44,312,304,361),tr(L"Принять и установить",L"Accept and install"));return;
         }
         if(step==Welcome) {
             label(tr(L"У С Т А Н О В К А",L"I N S T A L L A T I O N"),44,174,365,25,eyebrowFont.Get(),ink());
@@ -549,7 +553,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.6.8") &&
+            writeString(key,L"DisplayVersion",L"0.6.9") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
@@ -702,10 +706,11 @@ struct Installer {
         if(preferences){
             if(inside(p,D2D1::RectF(702,185,794,220)))return 16;
             if(inside(p,D2D1::RectF(44,185,692,220)))return 15;
-            if(inside(p,D2D1::RectF(118,116,154,144)))return 6;if(inside(p,D2D1::RectF(158,116,194,144)))return 7;
-            if(inside(p,D2D1::RectF(297,116,363,144)))return 4;if(inside(p,D2D1::RectF(367,116,433,144)))return 5;if(inside(p,D2D1::RectF(437,116,510,144)))return 3;
+            const float languageX=english?118.0f:94.0f;
+            if(inside(p,D2D1::RectF(languageX,116,languageX+36,144)))return 6;if(inside(p,D2D1::RectF(languageX+40,116,languageX+76,144)))return 7;
+            if(inside(p,D2D1::RectF(297,116,363,144)))return 4;if(inside(p,D2D1::RectF(367,116,433,144)))return 5;
             if(inside(p,D2D1::RectF(44,236,600,270)))return 12;if(inside(p,D2D1::RectF(44,274,600,308)))return 13;
-            if(inside(p,D2D1::RectF(44,355,304,404)))return 1;return inside(p,D2D1::RectF(720,68,794,104))?2:-1;
+            if(inside(p,D2D1::RectF(44,312,304,361)))return 1;return inside(p,D2D1::RectF(720,68,794,104))?2:-1;
         }
         if(step==Welcome&&inside(p,D2D1::RectF(44,350,344,390)))return 8;
         if(step==Ready&&inside(p,D2D1::RectF(284,400,660,440)))return 14;
@@ -717,7 +722,7 @@ struct Installer {
         listening=false;keyboardFocus=true;
         std::vector<int> ids;
         if(!notice.empty())ids={20,10,11};
-        else if(preferences)ids={6,7,4,5,3,15,16,12,13,1,2,10,11};
+        else if(preferences)ids={6,7,4,5,15,16,12,13,1,2,10,11};
         else if(step==Welcome)ids={1,8,10,11};
         else if(step==Hotkey)ids={0,1,10,11};
         else if(step==Confirm)ids={2,1,10,11};
@@ -729,7 +734,7 @@ struct Installer {
     void activateFocused() {
         POINT p{};
         if(focused==10)p={740,36};else if(focused==11)p={780,36};else if(focused==20)p={660,374};
-        else if(preferences){switch(focused){case 6:p={136,130};break;case 7:p={176,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 15:SetFocus(pathEdit);return;case 16:p={750,202};break;case 12:p={60,253};break;case 13:p={60,291};break;case 1:p={170,380};break;default:p={760,85};}}
+        else if(preferences){switch(focused){case 6:p={english?136:112,130};break;case 7:p={english?176:152,130};break;case 4:p={330,130};break;case 5:p={400,130};break;case 3:p={470,130};break;case 15:SetFocus(pathEdit);return;case 16:p={750,202};break;case 12:p={60,253};break;case 13:p={60,291};break;case 1:p={170,338};break;default:p={760,85};}}
         else if(focused==14)p={300,418};else if(focused==0)p={120,220};else if(focused==8)p={100,370};
         else{auto rect=focused==2?secondaryRect():primaryRect(step);p={int((rect.left+rect.right)/2),int((rect.top+rect.bottom)/2)};}nextClick(p);
     }
@@ -891,7 +896,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     setup.scale=std::clamp(GetDpiForSystem()/96.0f,1.0f,2.5f);
     D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,setup.factory.GetAddressOf());
     if(!setup.factory||FAILED(createApprovedSettingsIcon(setup.factory.Get(),setup.settingsIcon.GetAddressOf()))||!setup.initializeFonts()){CoUninitialize();return 3;}
-    setup.medium->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+    setup.medium->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
     // Preview mode exercises the actual native UI without installing anything.
     if(commandLine && wcsstr(commandLine,L"--preview")) {
         int step=0,dpi=96;
@@ -918,7 +923,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     int x=work.left+(work.right-work.left-physicalW)/2;
     int y=work.top+(work.bottom-work.top-physicalH)/2;
     HWND hwnd=CreateWindowExW(WS_EX_APPWINDOW,L"ScreenshotPremiumSetup",
-        L"Screenshot",WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,x,y,physicalW,physicalH,nullptr,nullptr,instance,&setup);
+        L"Screenshot",WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX|WS_CLIPCHILDREN,x,y,physicalW,physicalH,nullptr,nullptr,instance,&setup);
     if(!hwnd){CoUninitialize();return 4;}
     if(!commandLine || !wcsstr(commandLine,L"--preview")) {
         DWORD vk=VK_SNAPSHOT,mod=0,size=sizeof(DWORD);
@@ -953,7 +958,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     if(setup.largeIcon)DestroyIcon(setup.largeIcon);
     setup.icon=nullptr;
     setup.regular.Reset();setup.medium.Reset();setup.smallText.Reset();setup.headline.Reset();
-    setup.actionFont.Reset();setup.detailFont.Reset();setup.eyebrowFont.Reset();setup.collection.Reset();
+    setup.choiceFont.Reset();setup.settingFont.Reset();setup.switchFont.Reset();setup.linkFont.Reset();setup.actionFont.Reset();setup.detailFont.Reset();setup.eyebrowFont.Reset();setup.collection.Reset();
     if(setup.fontLoader)setup.fonts->UnregisterFontCollectionLoader(setup.fontLoader.Get());
     setup.fontLoader.Reset();setup.fonts.Reset();setup.factory.Reset();
     if(setup.pathFont)DeleteObject(setup.pathFont);if(setup.pathBrush)DeleteObject(setup.pathBrush);
