@@ -12,12 +12,12 @@ class InstallerWebHost {
 public:
     std::function<void(const std::wstring&)> message;
     static std::wstring quote(const std::wstring& text){std::wstring out=L"\"";for(wchar_t c:text){if(c==L'\\'||c==L'\"'){out+=L'\\';out+=c;}else if(c==L'\n')out+=L"\\n";else if(c==L'\r')out+=L"\\r";else if(c==L'\t')out+=L"\\t";else if(c<32){wchar_t escaped[7]{};swprintf_s(escaped,L"\\u%04x",static_cast<unsigned>(c));out+=escaped;}else out+=c;}return out+L"\"";}
-    void resize(){if(controller){RECT r{};GetClientRect(window,&r);controller->put_Bounds(r);}}
+    void resize(){if(controller){RECT r{};GetClientRect(window,&r);controller->put_Bounds(r);controller->put_IsVisible(IsWindowVisible(window));}}
     void update(const std::wstring& state){pending=state;if(ready&&web)web->ExecuteScript((L"window.update&&window.update("+state+L")").c_str(),nullptr);}
     void close(){if(controller)controller->Close();web.Reset();controller.Reset();environment.Reset();ready=false;}
     HRESULT start(HWND hwnd,HINSTANCE instance){
         window=hwnd;wchar_t local[MAX_PATH]{};SHGetFolderPathW(nullptr,CSIDL_LOCAL_APPDATA,nullptr,0,local);
-        std::wstring profile=std::wstring(local)+L"\\Screenshot\\InstallerWebView2";
+        std::wstring profile=std::wstring(local)+L"\\Screenshot\\InstallerWebView2\\"+std::to_wstring(GetCurrentProcessId());
         return CreateCoreWebView2EnvironmentWithOptions(nullptr,profile.c_str(),nullptr,
           Microsoft::WRL::Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>([this,instance](HRESULT result,ICoreWebView2Environment* env)->HRESULT{
             if(FAILED(result)||!env){MessageBoxW(window,L"Microsoft Edge WebView2 Runtime is required to open Screenshot Setup.",L"Screenshot",MB_OK|MB_ICONERROR);DestroyWindow(window);return S_OK;}

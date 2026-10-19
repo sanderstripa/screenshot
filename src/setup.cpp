@@ -853,6 +853,7 @@ LRESULT CALLBACK procedure(HWND hwnd,UINT msg,WPARAM w,LPARAM l) {
         }
         case WM_CTLCOLOREDIT:if(reinterpret_cast<HWND>(l)==s->pathEdit){SetTextColor(reinterpret_cast<HDC>(w),s->light?RGB(32,38,36):RGB(237,237,233));SetBkColor(reinterpret_cast<HDC>(w),s->light?RGB(235,233,228):RGB(41,43,44));return reinterpret_cast<LRESULT>(s->pathBrush);}break;
         case WM_SETTINGCHANGE:if(s->themeMode==0){s->light=ConnectUI::systemLight();s->theme();}return 0;
+        case WM_SHOWWINDOW:s->webHost.resize();return 0;
         case WM_SIZE:
             s->webHost.resize();s->redraw();return 0;
         case WM_PAINT:{PAINTSTRUCT ps{};BeginPaint(hwnd,&ps);EndPaint(hwnd,&ps);return 0;}
