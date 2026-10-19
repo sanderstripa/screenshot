@@ -1,3 +1,12 @@
+# Screenshot 0.7.2
+
+- Единый установщик CONNECT Installer на Go/Wails; общий исходник хранится в `sanderstripa/connect/installer-core`.
+- Кнопка «Принять и установить» находится на том же уровне, что в VPN, в обеих темах и на обоих языках.
+- Сохранены установочные адаптеры, настройки и особенности продукта из проверенных пользователем локальных сборок.
+- Изменения интерфейса и функциональности самого приложения не вносились, кроме номера версии.
+
+Пользователь подтвердил установку всех пяти предыдущих локальных сборок. Автоматические проверки текущей сборки указаны в GitHub Actions; повторная ручная установка каждого финального SHA не заявляется.
+
 # Screenshot v0.7.1
 
 The installer now renders the original CONNECT installer HTML/CSS components in WebView2, using the same bundled Montserrat font. Language/theme controls, folder input, Browse button, switches, borders and colors use the CONNECT definitions directly. The application UI and capture engine are unchanged.

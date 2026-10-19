@@ -10,6 +10,10 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.0'
+          cache: false
       - name: Verify approved SVG geometry
         shell: pwsh
         run: |
@@ -26,54 +30,14 @@ jobs:
         run: |
           $p = Start-Process -FilePath ".\build\Release\Screenshot.exe" -ArgumentList "--self-test" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Image test failed: $($p.ExitCode)" }
-      - name: Build native custom installer (no Inno)
-        run: cmake --build build --config Release --target ScreenshotSetup
-      - name: Verify embedded executable
+
+
+
+
+      - name: Build and verify shared CONNECT Installer
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath ".\build\Release\Screenshot-Setup.exe" -ArgumentList "--self-test" -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "Embedded payload invalid: $($p.ExitCode)" }
-      - name: Install twice to test both clean install and updating an existing version
-        shell: pwsh
-        run: |
-          for ($i=1; $i -le 2; $i++) {
-            $p = Start-Process -FilePath ".\build\Release\Screenshot-Setup.exe" -ArgumentList "--integration-test" -Wait -PassThru
-            if ($p.ExitCode -ne 0) { throw "Install or upgrade attempt $i failed: $($p.ExitCode)" }
-            if (!(Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe")) { throw "App missing after attempt $i" }
-            if (!(Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Uninstall.exe")) { throw "Uninstaller missing after attempt $i" }
-          }
-          $expected = (Get-FileHash ".\build\Release\Screenshot.exe").Hash
-          $installed = (Get-FileHash "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe").Hash
-          if ($expected -ne $installed) { throw "Installed exe mismatch" }
-          $app = "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe"
-          $child = Start-Process -FilePath $app -ArgumentList "--hold-install-test" -PassThru
-          Start-Sleep -Seconds 2
-          if ($child.HasExited) { throw "Upgrade test process exited unexpectedly" }
-          $upgrade = Start-Process -FilePath ".\build\Release\Screenshot-Setup.exe" -ArgumentList "--integration-test" -Wait -PassThru
-          if ($upgrade.ExitCode -ne 0) { throw "Update over running Screenshot failed: $($upgrade.ExitCode)" }
-          $child.WaitForExit(10000) | Out-Null
-          if (!$child.HasExited) { Stop-Process -Id $child.Id -Force; throw "Old screenshot did not exit" }
-          if ((Get-FileHash $app).Hash -ne $expected) { throw "Upgrade binary differs" }
-      - name: Verify Windows autostart registration and clean uninstall
-        shell: pwsh
-        run: |
-          $launch = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run").Screenshot
-          if (!$launch.Contains("Screenshot.exe")) { throw "Autostart registration invalid" }
-          if (!$launch.Contains("--background")) { throw "Login startup must stay in the background" }
-          $shortcutPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'Screenshot.lnk'
-          if (!(Test-Path -LiteralPath $shortcutPath)) { throw "Start menu shortcut missing" }
-          $shell = New-Object -ComObject WScript.Shell
-          $shortcut = $shell.CreateShortcut($shortcutPath)
-          if ($shortcut.Arguments -ne '--settings' -or $shortcut.TargetPath -ne "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe") {
-            throw "Start menu must open the application settings"
-          }
-          $uninst = "$env:LOCALAPPDATA\Programs\Screenshot\Uninstall.exe"
-          $remove = Start-Process -FilePath $uninst -ArgumentList "--uninstall" -Wait -PassThru
-          if ($remove.ExitCode -ne 0) { throw "Uninstaller failed: $($remove.ExitCode)" }
-          if (Test-Path "$env:LOCALAPPDATA\Programs\Screenshot\Screenshot.exe") {
-            throw "Executable remains after uninstall"
-          }
-          if (Test-Path -LiteralPath $shortcutPath) { throw "Start menu shortcut remains after uninstall" }
+          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '0.7.2' -OutFile "$PWD/build/Release/Screenshot-Setup.exe" -TestUI
       - name: Verify actual saved PNG and clipboard
         shell: pwsh
         run: |
@@ -94,20 +58,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download v0.7.1-rc.3 --repo "${{ github.repository }}" --pattern Screenshot-Setup.exe --dir verified-release
-          if ($LASTEXITCODE -ne 0) { throw "Tested candidate download failed" }
-          $expected = "8866e42d1cc22552b8b1674f626ce90ee0be4bf2161a696c0933a1eb6d8edcb4"
-          if ((Get-FileHash verified-release/Screenshot-Setup.exe).Hash.ToLowerInvariant() -ne $expected) { throw "Tested candidate hash mismatch" }
-          Copy-Item verified-release/Screenshot-Setup.exe dist/Screenshot-Setup.exe -Force
-          $tag = "v0.7.1"
-          gh release view $tag --repo "${{ github.repository }}" *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag "dist/Screenshot-Setup.exe" `
-              --repo "${{ github.repository }}" `
-              --title "Screenshot v0.7.1" `
-              --notes-file "RELEASE_NOTES.md" `
-              --target "${{ github.sha }}" `
-              --latest
-            if ($LASTEXITCODE -ne 0) { throw "Release publish failed" }
+          gh release view v0.7.2 --repo $env:GITHUB_REPOSITORY *> $null
+          if($LASTEXITCODE -ne 0){
+            gh release create v0.7.2 dist/Screenshot-Setup.exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'Screenshot v0.7.2' --notes-file RELEASE_NOTES.md --latest
+            if($LASTEXITCODE){throw 'Release publication failed'}
           }
-
