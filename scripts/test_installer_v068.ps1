@@ -6,14 +6,24 @@ Add-Type @'
 using System;using System.Runtime.InteropServices;
 public static class PathNative {
  [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr hwnd,int id);
- [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern bool SetWindowText(IntPtr hwnd,string text);
- [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd,System.Text.StringBuilder text,int length);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode,EntryPoint="SendMessageW")] private static extern IntPtr SetTextMessage(IntPtr hwnd,uint message,IntPtr wp,string text);
+ public static bool SetWindowText(IntPtr hwnd,string text){return SetTextMessage(hwnd,0xc,IntPtr.Zero,text)!=IntPtr.Zero;}
+ [DllImport("user32.dll",CharSet=CharSet.Unicode,EntryPoint="SendMessageW")] private static extern IntPtr GetTextMessage(IntPtr hwnd,uint message,IntPtr length,System.Text.StringBuilder text);
+ public static int GetWindowText(IntPtr hwnd,System.Text.StringBuilder text,int length){return GetTextMessage(hwnd,0xd,new IntPtr(length),text).ToInt32();}
+}
+[ComImport,Guid("000214F9-0000-0000-C000-000000000046"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface WideLink {
+ void GetPath([Out,MarshalAs(UnmanagedType.LPWStr)] System.Text.StringBuilder path,int count,IntPtr findData,uint flags);
+}
+public static class ShortcutReader {
+ public static string Target(string file){object link=Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("00021401-0000-0000-C000-000000000046")));try{((System.Runtime.InteropServices.ComTypes.IPersistFile)link).Load(file,0);var text=new System.Text.StringBuilder(32768);((WideLink)link).GetPath(text,32768,IntPtr.Zero,0);return text.ToString();}finally{Marshal.FinalReleaseComObject(link);}}
 }
 '@
 $Setup=(Resolve-Path $Setup).Path
 $key='HKCU:\Software\SanderStripa\Screenshot';$uninstall='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Screenshot';$backup=@{}
 foreach($n in 'HotkeyVK','HotkeyModifiers','ThemeMode','ThemeLight','LanguageEN'){try{$backup[$n]=Get-ItemPropertyValue $key $n -ErrorAction Stop}catch{$backup[$n]=$null}}
 $original=Get-ItemPropertyValue $uninstall InstallLocation
+if($original -like '*\test-results\custom-install\*'){$original=Join-Path $env:LOCALAPPDATA 'Programs\Screenshot'}
 $custom=Join-Path $PWD 'test-results\custom-install\Приложение Screenshot'
 New-Item -ItemType Directory -Path $custom -Force|Out-Null
 Set-Content (Join-Path $custom 'keep-user-file.txt') 'preserve me'
@@ -41,13 +51,14 @@ function Run-Install([string]$target,[bool]$dark,[bool]$en,[bool]$picker=$false)
   if($entered.ToString() -ne $target){throw "Folder changed after theme/language: $entered"}
   Shot $h "preferences-$dark-$en"|Out-Null
   Click $h 170 380;Start-Sleep -Seconds 4
+  Shot $h 'after-start'|Out-Null
   $actual=Get-ItemPropertyValue $uninstall InstallLocation
   if($actual -ne $target -or !(Test-Path (Join-Path $target 'Screenshot.exe'))){throw "Incorrect installation target $actual"}
   if((Get-ItemPropertyValue $key ThemeMode) -ne $(if($dark){2}else{1}) -or (Get-ItemPropertyValue $key LanguageEN) -ne [int]$en){throw 'Installer appearance not inherited'}
   $run=Get-ItemPropertyValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' Screenshot
   if(!$run.StartsWith('"'+(Join-Path $target 'Screenshot.exe')+'"')){throw 'Autostart points to wrong path'}
   $shell=New-Object -ComObject WScript.Shell
-  foreach($folder in 'Programs','Desktop'){$link=$shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath($folder)) 'Screenshot.lnk'));if($link.TargetPath -ne (Join-Path $target 'Screenshot.exe')){throw 'Shortcut points to wrong target'}}
+  foreach($folder in 'Programs','Desktop'){$linkFile=Join-Path ([Environment]::GetFolderPath($folder)) 'Screenshot.lnk';if([ShortcutReader]::Target($linkFile) -ne (Join-Path $target 'Screenshot.exe')){throw 'Shortcut points to wrong target'}}
   if(!(Get-ItemPropertyValue $uninstall UninstallString).Contains((Join-Path $target 'Uninstall.exe'))){throw 'Wrong uninstall path'}
   Click $h 420 294;Stop-Worker;Click $h 120 220;[SettingsNative]::PostMessage($h,0x100,[IntPtr]0x86,[IntPtr]::Zero)|Out-Null
   Start-Sleep -Milliseconds 150;Click $h 650 350;Start-Sleep -Milliseconds 600;Click $h 420 360
@@ -55,6 +66,11 @@ function Run-Install([string]$target,[bool]$dark,[bool]$en,[bool]$picker=$false)
   $app=[SettingsNative]::FindWindow('ScreenshotSettings',$null);if($app -eq [IntPtr]::Zero){throw 'Application did not open from selected directory'}
   $shot=Shot $app "application-$dark-$en";if($shot.Pixel.R -ne $(if($dark){12}else{247})){throw 'Application theme differs from installer'}
   [SettingsNative]::PostMessage($app,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
+  Start-Sleep -Milliseconds 200
+  Start-Process (Join-Path ([Environment]::GetFolderPath('Programs')) 'Screenshot.lnk')
+  $linked=[IntPtr]::Zero;for($i=0;$i -lt 40;$i++){Start-Sleep -Milliseconds 100;$linked=[SettingsNative]::FindWindow('ScreenshotSettings',$null);if($linked -ne [IntPtr]::Zero){break}}
+  if($linked -eq [IntPtr]::Zero){throw 'Start menu shortcut did not open application'}
+  [SettingsNative]::PostMessage($linked,0x10,[IntPtr]::Zero,[IntPtr]::Zero)|Out-Null
   Write-Output "PASS install/update at $target; inherited dark=$dark English=$en; launch/autostart/shortcuts/uninstaller"
  }finally{if(!$p.HasExited){Stop-Process -Id $p.Id -ErrorAction SilentlyContinue}}
 }
@@ -62,6 +78,11 @@ try {
  Run-Install $custom $true $true $true
  if(Test-Path (Join-Path $original 'Screenshot.exe')){throw 'Old executable remains after migration'}
  Run-Install $custom $true $true
+ Stop-Worker
+ $customRemove=Start-Process (Join-Path $custom 'Uninstall.exe') -ArgumentList '--uninstall' -WindowStyle Hidden -Wait -PassThru
+ if($customRemove.ExitCode -ne 0 -or (Test-Path (Join-Path $custom 'Screenshot.exe'))){throw 'Uninstall from custom directory failed'}
+ if(!(Test-Path (Join-Path $custom 'keep-user-file.txt'))){throw 'Custom uninstall deleted unrelated files'}
+ Write-Output 'PASS uninstall from Unicode custom directory preserves unrelated files'
  Run-Install $original $false $false
  if(!(Test-Path (Join-Path $custom 'keep-user-file.txt'))){throw 'Relocation removed unrelated files'}
  Write-Output 'PASS relocation preserves unrelated files'

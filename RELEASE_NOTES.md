@@ -1,11 +1,10 @@
-# Screenshot v0.6.7 — approved CONNECT installer
+# Screenshot v0.6.8 — installation folder and first-launch preferences
 
-- Rebuilt the native installer visuals from the approved CONNECT installer reference: Montserrat, 840×540 layout, light/dark tones, supplied pink ribbon, shared footer and Screenshot version.
-- Added independent Desktop and Start menu shortcut switches.
-- The final Done action has a launch switch underneath; turning it off closes setup without opening the application window. The screenshot worker remains available for the configured capture shortcut.
-- Kept installation/update, hotkey assignment and explicit Print Screen confirmation. No browser extension is included.
-- Application UI and capture code are unchanged; app version metadata is 0.6.7.
+- Installation settings now show an editable destination and a native Browse folder picker. Updates default to the registered installation folder.
+- Installation, launch, Desktop/Start menu shortcuts, autostart and uninstall use the selected location. Relocation removes only the old Screenshot executable/uninstaller; unrelated files are retained.
+- The installer saves System/Light/Dark, its effective light state and RU/EN before the application starts. The first application window inherits these choices; they remain editable inside the app.
+- The application UI/capture implementation is unchanged.
 
-Windows validation: six native stages × both themes × 100/150/200% DPI; RU/EN and theme switching; all four actual install/update shortcut combinations; shortcut targets; Print Screen consent cancellation; Done with launch off/on. Windows CI verifies clean install/reinstall/live upgrade, autostart, uninstall and PNG/clipboard.
+Windows verification: native folder picker/cancel, custom directory with spaces and Cyrillic, repeated update there, real Unicode Start menu shortcut launch, dark/English and light/Russian first launch, autostart/uninstall registration, custom-path uninstall, unrelated-file preservation, return to default directory and clean reinstall. Windows CI verifies install/update/autostart/uninstall and PNG/clipboard.
 
-The final release uses the exact locally tested v0.6.7-rc.2 installer, SHA-256: 4ddfab82fd07d25dfcb8a5e9078bc54a20a9cb307490d168e3abe2d95ed217de.
+Exact locally tested v0.6.8-rc.3 installer SHA-256: 93484348cccbb12c6e3afab0f65511012dcfb26b85d02f1b9328e53b941c0340. Stable release reuses these bytes.
