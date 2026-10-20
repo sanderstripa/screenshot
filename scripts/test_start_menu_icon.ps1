@@ -16,8 +16,8 @@ $dir=Get-ItemPropertyValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Unin
 $icon=Join-Path $dir "Screenshot-$($hash.Substring(0,16)).ico"
 if(!(Test-Path -LiteralPath $icon) -or (Get-FileHash $icon).Hash.ToLowerInvariant() -ne $hash){throw 'Dedicated installed icon missing or stale'}
 $programs=[Environment]::GetFolderPath('Programs')
-$shortcut=Join-Path $programs 'Screenshot.lnk'
-if(Test-Path -LiteralPath (Join-Path $programs 'Screenshot/Screenshot.lnk')){throw 'Legacy nested Start menu shortcut remains'}
+$shortcut=Join-Path $programs 'Screenshot/Screenshot.lnk'
+if(Test-Path -LiteralPath (Join-Path $programs 'Screenshot.lnk')){throw 'Legacy root Start menu shortcut remains'}
 $shell=New-Object -ComObject WScript.Shell
 foreach($link in $shortcut,(Join-Path ([Environment]::GetFolderPath('Desktop')) 'Screenshot.lnk')){
  if(!(Test-Path -LiteralPath $link)){throw "Shortcut missing: $link"}
@@ -30,4 +30,4 @@ foreach($size in 16,32){
  if($result -eq [IntPtr]::Zero -or $info.Icon -eq [IntPtr]::Zero){throw 'Windows shell failed to resolve Start menu icon'}
  try{$bitmap=[Drawing.Icon]::FromHandle($info.Icon).ToBitmap();$bitmap.Save((Join-Path ([IO.Path]::GetFullPath($Output)) "shell-$size.png"));$bitmap.Dispose()}finally{[ShellIconProbe]::DestroyIcon($info.Icon)|Out-Null}
 }
-Write-Output "PASS Start menu and desktop use $icon; old nested shortcut removed; Windows shell icons captured"
+Write-Output "PASS Start menu and desktop use $icon; old root shortcut removed; Windows shell icons captured"
