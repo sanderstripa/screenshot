@@ -89,13 +89,14 @@ struct Settings {
     ComPtr<IDWriteFontCollection> collection;
     ComPtr<IDWriteTextFormat> title,section,body,hintFont;
     std::wstring fontPath;
-    HICON icon{};
+    HICON icon{}, smallIcon{};
     ~Settings() {
         title.Reset();section.Reset();body.Reset();hintFont.Reset();collection.Reset();
         if(fontLoader&&fonts)fonts->UnregisterFontCollectionLoader(fontLoader.Get());
         fontLoader.Reset();fonts.Reset();
         if(!fontPath.empty())DeleteFileW(fontPath.c_str());
         if(icon)DestroyIcon(icon);
+        if(smallIcon)DestroyIcon(smallIcon);
     }
     D2D1_COLOR_F color(UINT rgb) {return D2D1::ColorF(rgb);}
     UINT ink() const {return ConnectUI::ink(light);}
@@ -379,9 +380,12 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
         if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,settings->graphics.GetAddressOf()))||FAILED(createApprovedSettingsIcon(settings->graphics.Get(),settings->settingsIcon.GetAddressOf()))||!settings->initializeFonts()) {
             settings.reset();MessageBoxW(nullptr,L"Не удалось открыть настройки Screenshot.",L"Screenshot",MB_OK|MB_ICONERROR);return;
         }
-        settings->icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),IMAGE_ICON,32,32,0));
+        settings->icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),IMAGE_ICON,256,256,0));
+        const UINT iconDpi=GetDpiForSystem();
+        settings->smallIcon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),IMAGE_ICON,
+            GetSystemMetricsForDpi(SM_CXSMICON,iconDpi),GetSystemMetricsForDpi(SM_CYSMICON,iconDpi),0));
         WNDCLASSEXW wc{sizeof(wc)};wc.hInstance=instance;wc.lpfnWndProc=settingsProc;wc.lpszClassName=L"ScreenshotSettings";
-        wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hIcon=settings->icon;RegisterClassExW(&wc);
+        wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hIcon=settings->icon;wc.hIconSm=settings->smallIcon;RegisterClassExW(&wc);
     }
     auto& s=*settings;s.apply=std::move(apply);s.vk=s.savedVK=vk;s.mod=s.savedMod=modifiers;
     DWORD value=0;if(readDword(L"HotkeyVK",value))s.vk=s.savedVK=value;
