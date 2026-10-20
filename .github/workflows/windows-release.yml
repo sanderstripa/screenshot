@@ -37,7 +37,13 @@ jobs:
       - name: Build and verify shared CONNECT Installer
         shell: pwsh
         run: |
-          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '0.7.2' -OutFile "$PWD/build/Release/Screenshot-Setup.exe" -TestUI
+          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '0.7.3' -OutFile "$PWD/build/Release/Screenshot-Setup.exe" -TestUI
+      - name: Verify all embedded application and installer icon sizes
+        shell: pwsh
+        run: |
+          python -m pip install Pillow==11.3.0
+          python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-Setup.exe build/Release/Screenshot.exe
+          if($LASTEXITCODE){throw 'Embedded icon verification failed'}
       - name: Verify actual saved PNG and clipboard
         shell: pwsh
         run: |
@@ -58,8 +64,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.7.2 --repo $env:GITHUB_REPOSITORY *> $null
+          gh release view v0.7.3-rc.1 --repo $env:GITHUB_REPOSITORY *> $null
           if($LASTEXITCODE -ne 0){
-            gh release create v0.7.2 dist/Screenshot-Setup.exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'Screenshot v0.7.2' --notes-file RELEASE_NOTES.md --latest
+            gh release create v0.7.3-rc.1 dist/Screenshot-Setup.exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'Screenshot v0.7.3-rc.1' --notes-file RELEASE_NOTES.md --prerelease
             if($LASTEXITCODE){throw 'Release publication failed'}
           }

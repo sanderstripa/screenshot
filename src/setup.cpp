@@ -220,7 +220,7 @@ struct Installer {
         if(keyboardFocus&&(focused==10||focused==11))outline(D2D1::RectF(focused==10?725.0f:767.0f,20,focused==10?753.0f:795.0f,50),5,mutedInk());
         brush->SetColor(edge());target->DrawLine(D2D1::Point2F(44,490),D2D1::Point2F(794,490),brush.Get());
         label(L"by CONNECT.",44,510,250,20,smallText.Get(),mutedInk());
-        label(tr(L"Версия 0.7.1",L"Version 0.7.1"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
+        label(tr(L"Версия 0.7.3",L"Version 0.7.3"),544,510,250,20,smallText.Get(),mutedInk(),DWRITE_TEXT_ALIGNMENT_TRAILING);
     }
     void button(D2D1_RECT_F rect,std::wstring text,bool active=true) {
         rounded(rect,10,D2D1::ColorF(light?0x242A28:0xE3E4DF));
@@ -378,7 +378,7 @@ struct Installer {
         auto b=[](bool value)->std::wstring{return value?L"true":L"false";};auto q=InstallerWebHost::quote;
         std::wstring json=L"{\"stage\":"+std::to_wstring(step)+L",\"preferences\":"+b(preferences)+L",\"english\":"+b(english)+L",\"light\":"+b(light);
         json+=L",\"path\":"+q(webPath.empty()?installDirectory():webPath)+L",\"key\":"+q(config.title)+L",\"desktop\":"+b(desktopShortcut)+L",\"menu\":"+b(startMenuShortcut)+L",\"launch\":"+b(openAfter);
-        json+=L",\"version\":\"0.7.1\",\"listening\":"+b(listening)+L",\"progress\":"+std::to_wstring(progress.load())+L",\"relogin\":"+b(needsRelogin)+L",\"notice\":"+q(notice)+L",\"failure\":"+q(result.load()==1?failureDetail:L"")+L",\"working\":"+b(working.load())+L"}";webHost.update(json);
+        json+=L",\"version\":\"0.7.3\",\"listening\":"+b(listening)+L",\"progress\":"+std::to_wstring(progress.load())+L",\"relogin\":"+b(needsRelogin)+L",\"notice\":"+q(notice)+L",\"failure\":"+q(result.load()==1?failureDetail:L"")+L",\"working\":"+b(working.load())+L"}";webHost.update(json);
     }
     void webAction(const std::wstring& message) {
         auto split=message.find(L'\n');auto action=message.substr(0,split);auto value=split==std::wstring::npos?L"":message.substr(split+1);
@@ -596,7 +596,7 @@ struct Installer {
             L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Screenshot",
             0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS)return false;
         bool ok=writeString(key,L"DisplayName",L"Screenshot") &&
-            writeString(key,L"DisplayVersion",L"0.7.1") &&
+            writeString(key,L"DisplayVersion",L"0.7.3") &&
             writeString(key,L"Publisher",L"Sander Stripa") &&
             writeString(key,L"InstallLocation",dir) &&
             writeString(key,L"DisplayIcon",exe) &&
