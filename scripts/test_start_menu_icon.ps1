@@ -1,4 +1,4 @@
-param([string]$Output='test-results/start-menu-icon')
+param([string]$Output='test-results/start-menu-icon',[string]$Python='python')
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
@@ -31,3 +31,5 @@ foreach($size in 16,32){
  try{$bitmap=[Drawing.Icon]::FromHandle($info.Icon).ToBitmap();$bitmap.Save((Join-Path ([IO.Path]::GetFullPath($Output)) "shell-$size.png"));$bitmap.Dispose()}finally{[ShellIconProbe]::DestroyIcon($info.Icon)|Out-Null}
 }
 Write-Output "PASS Start menu and desktop use $icon; old root shortcut removed; Windows shell icons captured"
+& $Python (Join-Path $PSScriptRoot 'verify_shell_icon.py') $expected ([IO.Path]::GetFullPath($Output))
+if($LASTEXITCODE){throw 'Windows shell still resolves stale icon pixels'}
