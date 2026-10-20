@@ -21,6 +21,8 @@ for i in range(count):
 if set(expected)!={(n,n) for n in (16,20,24,32,40,48,64,128,256)}:
     raise RuntimeError('Incomplete source icon sizes')
 for file in sys.argv[2:]:
+    if 'Setup' in Path(file).name and Path(sys.argv[1]).with_suffix('.png').read_bytes() not in Path(file).read_bytes():
+        raise RuntimeError('Installer runtime window icon does not contain the approved PNG')
     module=k.LoadLibraryExW(str(Path(file).resolve()),None,0x22)
     if not module:raise c.WinError()
     try:
