@@ -41,11 +41,18 @@ $originalWindowIcon=[IO.File]::ReadAllBytes($coreWindowIcon)
 Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot.ico') -Destination $coreIcon -Force
 Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot.png') -Destination $coreWindowIcon -Force
 $sourceCommit=(git -C $repo rev-parse HEAD).Trim()
+$adapterSource=Join-Path $core 'adapters/screenshot/adapter_windows.go'
+$originalAdapter=[IO.File]::ReadAllBytes($adapterSource)
+$adapterIcon=Join-Path $core 'adapters/screenshot/Screenshot.ico'
+$originalAdapterIcon=if(Test-Path -LiteralPath $adapterIcon){[IO.File]::ReadAllBytes($adapterIcon)}else{$null}
 try {
+& (Join-Path $PSScriptRoot 'prepare-installer-icon.ps1') -CoreRoot $core -IconPath (Join-Path $repo 'assets/Screenshot.ico')
 & (Join-Path $core 'build.ps1') -Product 'screenshot' -PayloadPath $PayloadPath -Version $Version -OutFile $OutFile -ExtensionPath $ExtensionPath -ExpectedExecutable $ExpectedExecutable -ProductCommit $sourceCommit -Go $Go
 if($LASTEXITCODE){throw 'Shared installer build failed'}
 if($TestUI){& (Join-Path $core 'test-ui.ps1') -OutputDirectory (Join-Path $repo '.tmp/installer-review')}
 } finally {
  [IO.File]::WriteAllBytes($coreIcon,$originalIcon)
  [IO.File]::WriteAllBytes($coreWindowIcon,$originalWindowIcon)
+ [IO.File]::WriteAllBytes($adapterSource,$originalAdapter)
+ if($null -ne $originalAdapterIcon){[IO.File]::WriteAllBytes($adapterIcon,$originalAdapterIcon)}else{Remove-Item -LiteralPath $adapterIcon -Force -ErrorAction SilentlyContinue}
 }

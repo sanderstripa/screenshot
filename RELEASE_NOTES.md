@@ -1,7 +1,7 @@
-# Screenshot 0.7.3
+# Screenshot 0.7.4
 
-Replaced the application, setup and uninstaller icons with the exact supplied pink ribbon/capture artwork. The high-resolution transparent PNG is packaged at 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixels for Windows. Desktop and Start menu shortcuts use the updated application icon.
+Fixed stale Start menu and desktop icons after updates. Shortcuts and Windows installed-app metadata now use a dedicated icon file named by its artwork hash, and setup notifies the Windows shell after replacing shortcuts. The approved artwork is unchanged.
 
-No application behavior, installer layout, fonts, colors or installation logic changed.
+Application layout, fonts, themes and capture behavior are unchanged. Installer: Screenshot-0.7.4-x64.exe.
 
-Installer filename: `Screenshot-0.7.3-x64.exe`.
+Builds are stored in GitHub Actions artifacts. No test releases are published; stable publication uses a verified artifact and SHA-256.
