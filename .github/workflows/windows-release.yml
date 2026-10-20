@@ -2,7 +2,7 @@ name: Screenshot Windows release
 on:
   push:
     branches: [main, connect-ui-v1-screenshot-buttons]
-    paths-ignore: [release-candidate.json]
+    paths-ignore: [release-candidate.json, '.github/workflows/publish-verified.yml']
   workflow_dispatch:
 permissions:
   contents: write

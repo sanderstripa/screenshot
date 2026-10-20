@@ -20,6 +20,8 @@ icon, err := assets.ReadFile("Screenshot.ico")
 Replace-Once '"DisplayIcon": exe,' '"DisplayIcon": filepath.Join(dir, installedIcon) + ",0",'
 Replace-Once 'core.Shortcuts("Screenshot", dir, "Screenshot.exe", "Screenshot.exe", "--settings", o.Desktop, o.StartMenu)' 'core.Shortcuts("Screenshot", dir, "Screenshot.exe", installedIcon, "--settings", o.Desktop, o.StartMenu)'
 Replace-Once 'if !existing {' @'
+// Migrate the owned shortcut left by older installers in a nested Start menu folder.
+	if err = core.PowerShell(`$folder=Join-Path ([Environment]::GetFolderPath('Programs')) 'Screenshot';$old=Join-Path $folder 'Screenshot.lnk';if(Test-Path -LiteralPath $old){$shell=New-Object -ComObject Shell.Application;$item=$shell.NameSpace($folder).ParseName('Screenshot.lnk');if($item.GetLink.Path -ieq ` + core.QuotePS(exe) + `){Remove-Item -LiteralPath $old -Force;if(@(Get-ChildItem -LiteralPath $folder -Force).Count -eq 0){Remove-Item -LiteralPath $folder -Force}}}`); err != nil { return err }
 // Shortcut IconLocation has a content-derived filename, bypassing cached EXE icons.
 	windows.NewLazySystemDLL("shell32.dll").NewProc("SHChangeNotify").Call(0x08000000, 0x1000, 0, 0)
 	if !existing {
