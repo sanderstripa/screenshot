@@ -9,12 +9,17 @@ function Replace-Once([string]$Old,[string]$New){
  $script:code=$script:code.Replace($Old,$New)
 }
 Replace-Once '//go:embed Screenshot.exe ribbon.png' '//go:embed Screenshot.exe ribbon.png Screenshot.ico'
+Replace-Once '"embed"' "`"bytes`"`n`t`"embed`""
 Replace-Once 'const uninstallKey =' ("const installedIcon = `"$iconName`"`n`nconst uninstallKey =")
 Replace-Once 'a.progress.Store(55)' @'
 icon, err := assets.ReadFile("Screenshot.ico")
 	if err != nil { return err }
 	if _, err = core.OwnedPath(dir, installedIcon); err != nil { return err }
-	if err = core.AtomicWrite(filepath.Join(dir, installedIcon), icon); err != nil { return err }
+	// Content-addressed artwork is immutable. Explorer may hold its existing file open.
+	storedIcon, iconReadErr := os.ReadFile(filepath.Join(dir, installedIcon))
+	if iconReadErr != nil || !bytes.Equal(storedIcon, icon) {
+		if err = core.AtomicWrite(filepath.Join(dir, installedIcon), icon); err != nil { return err }
+	}
 	a.progress.Store(55)
 '@
 Replace-Once '"DisplayIcon": exe,' '"DisplayIcon": filepath.Join(dir, installedIcon) + ",0",'
