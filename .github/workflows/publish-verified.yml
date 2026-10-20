@@ -1,0 +1,31 @@
+name: Publish verified Screenshot release
+on:
+  push:
+    branches: [main]
+    paths: [release-candidate.json]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify the Windows-tested Actions artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $release=Get-Content release-candidate.json -Raw | ConvertFrom-Json
+          if($release.version -notmatch '^\d+\.\d+\.\d+$' -or $release.sha256 -notmatch '^[a-f0-9]{64}$' -or $release.commit -notmatch '^[a-f0-9]{40}$'){throw 'Invalid release verification manifest'}
+          $run=gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$($release.run)" | ConvertFrom-Json
+          if($LASTEXITCODE -or $run.conclusion -ne 'success' -or $run.head_sha -ne $release.commit){throw 'Artifact source build was not verified'}
+          gh run download $release.run --repo $env:GITHUB_REPOSITORY --name Screenshot-Windows-x64 --dir verified-release
+          if($LASTEXITCODE){throw 'Verified artifact download failed'}
+          $file="verified-release/Screenshot-$($release.version)-x64.exe"
+          if((Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant() -ne $release.sha256){throw 'Tested installer hash mismatch'}
+          $tag="v$($release.version)"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if($LASTEXITCODE -eq 0){throw 'Refusing to overwrite an existing stable release'}
+          gh release create $tag $file --repo $env:GITHUB_REPOSITORY --target $release.commit --title "Screenshot $tag" --notes-file RELEASE_NOTES.md --latest
+          if($LASTEXITCODE){throw 'Stable publication failed'}
