@@ -1,7 +1,4 @@
-# Screenshot 0.7.4
+Screenshot 0.7.5
 
-Fixed stale Start menu and desktop icons after updates. Shortcuts and Windows installed-app metadata now use a dedicated icon file named by its artwork hash, and setup notifies the Windows shell after replacing shortcuts. The approved artwork is unchanged.
-
-Application layout, fonts, themes and capture behavior are unchanged. Installer: Screenshot-0.7.4-x64.exe.
-
-Builds are stored in GitHub Actions artifacts. No test releases are published; stable publication uses a verified artifact and SHA-256.
+- New graphite squircle application icon with the approved minimal glass symbol.
+- Updated application, installer, desktop and Start menu branding, including all Windows icon sizes.

@@ -38,12 +38,12 @@ jobs:
       - name: Build and verify shared CONNECT Installer
         shell: pwsh
         run: |
-          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '0.7.4' -OutFile "$PWD/build/Release/Screenshot-0.7.4-x64.exe" -TestUI
+          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '0.7.5' -OutFile "$PWD/build/Release/Screenshot-0.7.5-x64.exe" -TestUI
       - name: Verify all embedded application and installer icon sizes
         shell: pwsh
         run: |
           python -m pip install Pillow==11.3.0
-          python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-0.7.4-x64.exe build/Release/Screenshot.exe
+          python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-0.7.5-x64.exe build/Release/Screenshot.exe
           if($LASTEXITCODE){throw 'Embedded icon verification failed'}
       - name: Verify actual saved PNG and clipboard
         shell: pwsh
@@ -54,8 +54,21 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          Copy-Item ".\build\Release\Screenshot-0.7.4-x64.exe" ".\dist\Screenshot-0.7.4-x64.exe" -Force
+          Copy-Item ".\build\Release\Screenshot-0.7.5-x64.exe" ".\dist\Screenshot-0.7.5-x64.exe" -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Screenshot-Windows-x64
-          path: dist/Screenshot-0.7.4-x64.exe
+          path: dist/Screenshot-0.7.5-x64.exe
+      - name: Publish verified 0.7.5 icon refresh
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.7.5 *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'Refusing to overwrite an existing release' }
+          $files = @('dist/Screenshot-0.7.5-x64.exe')
+          $sums = foreach ($file in $files) { "$((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($file))" }
+          $sums | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii
+          gh release create v0.7.5 dist/Screenshot-0.7.5-x64.exe SHA256SUMS.txt --target $env:GITHUB_SHA --latest --title 'Screenshot v0.7.5' --notes-file RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw 'Verified release publication failed' }
