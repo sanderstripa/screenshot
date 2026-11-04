@@ -22,6 +22,7 @@ using Microsoft::WRL::RuntimeClassFlags;
 using Microsoft::WRL::ClassicCom;
 namespace {
 constexpr int WIDTH=520, HEIGHT=382;
+constexpr UINT_PTR RENDER_RETRY_TIMER=2;
 constexpr wchar_t CONFIG[]=L"Software\\SanderStripa\\Screenshot";
 bool readDword(const wchar_t* name,DWORD& value) {
     DWORD size=sizeof(value);
@@ -76,6 +77,7 @@ struct Settings {
             RegCloseKey(key);
         }
     }
+    unsigned renderFailures=0;
     DWORD themeMode=2;int hovered=-1,pressed=-1,focused=-1;
     const wchar_t* tr(const wchar_t* ru,const wchar_t* en) const {return english?en:ru;}
     std::wstring status,notice;
@@ -151,13 +153,31 @@ struct Settings {
         DwmSetWindowAttribute(hwnd,DWMWA_BORDER_COLOR,&outline,sizeof(outline));
         InvalidateRect(hwnd,nullptr,FALSE);
     }
+    void renderFailed(HDC dc) {
+        brush.Reset();target.Reset();
+        // Never leave an unpainted system-gray client area after a drawing failure.
+        RECT rect{};GetClientRect(hwnd,&rect);
+        HBRUSH background=CreateSolidBrush(light?RGB(247,247,245):RGB(12,12,13));
+        FillRect(dc,&rect,background);DeleteObject(background);
+        SetBkMode(dc,TRANSPARENT);SetTextColor(dc,light?RGB(23,26,29):RGB(230,231,233));
+        const wchar_t* message=tr(L"Не удалось отрисовать настройки. Закройте окно и откройте его снова.",
+            L"Could not draw settings. Close this window and open it again.");
+        InflateRect(&rect,-28,-28);
+        DrawTextW(dc,message,-1,&rect,DT_CENTER|DT_VCENTER|DT_WORDBREAK);
+        if(++renderFailures<=3)SetTimer(hwnd,RENDER_RETRY_TIMER,250,nullptr);
+    }
     void paint() {
         PAINTSTRUCT ps{};BeginPaint(hwnd,&ps);
         if(!target) {
             RECT rect{};GetClientRect(hwnd,&rect);
-            if(FAILED(graphics->CreateHwndRenderTarget(D2D1::RenderTargetProperties(),
-                D2D1::HwndRenderTargetProperties(hwnd,D2D1::SizeU(rect.right,rect.bottom)),&target))) {EndPaint(hwnd,&ps);return;}
-            target->CreateSolidColorBrush(color(ink()),&brush);
+            // This small, static window does not need a GPU swap chain. An opaque
+            // software target also works with remote sessions and problematic drivers.
+            auto properties=D2D1::RenderTargetProperties(D2D1_RENDER_TARGET_TYPE_SOFTWARE,
+                D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,D2D1_ALPHA_MODE_IGNORE));
+            HRESULT result=graphics->CreateHwndRenderTarget(properties,
+                D2D1::HwndRenderTargetProperties(hwnd,D2D1::SizeU(rect.right,rect.bottom)),&target);
+            if(SUCCEEDED(result))result=target->CreateSolidColorBrush(color(ink()),&brush);
+            if(FAILED(result)){renderFailed(ps.hdc);EndPaint(hwnd,&ps);return;}
         }
         target->SetDpi(96*scale,96*scale);target->BeginDraw();
         target->Clear(color(ConnectUI::background(light)));
@@ -214,7 +234,8 @@ struct Settings {
             button(D2D1::RectF(340,332,492,368),L"OK",true,1);
         }
         HRESULT result=target->EndDraw();
-        if(result==D2DERR_RECREATE_TARGET){brush.Reset();target.Reset();}
+        if(FAILED(result))renderFailed(ps.hdc);
+        else {renderFailures=0;KillTimer(hwnd,RENDER_RETRY_TIMER);}
         EndPaint(hwnd,&ps);
     }
     bool initializeFonts() {
@@ -354,6 +375,8 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
     case WM_LBUTTONDOWN:s->pressed=s->hit(GET_X_LPARAM(lp)/s->scale,GET_Y_LPARAM(lp)/s->scale);SetFocus(hwnd);InvalidateRect(hwnd,nullptr,FALSE);return 0;
     case WM_ERASEBKGND:return 1;
     case WM_PAINT:s->paint();return 0;
+    case WM_TIMER:if(wp==RENDER_RETRY_TIMER){KillTimer(hwnd,RENDER_RETRY_TIMER);InvalidateRect(hwnd,nullptr,FALSE);return 0;}break;
+    case WM_DISPLAYCHANGE:s->brush.Reset();s->target.Reset();s->renderFailures=0;InvalidateRect(hwnd,nullptr,FALSE);return 0;
     case WM_SIZE:s->brush.Reset();s->target.Reset();InvalidateRect(hwnd,nullptr,FALSE);return 0;
     case WM_WINDOWPOSCHANGED:s->savePosition();break;
     case WM_QUERYENDSESSION:s->savePosition();return TRUE;
@@ -367,7 +390,7 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
         else if(wp==VK_RETURN||wp==VK_SPACE){if(s->focused>=0)s->activate(s->focused);else if(!s->appearance)s->save();}
         return 0;
     case WM_KEYUP:case WM_SYSKEYUP:if(s->listening&&wp==VK_SNAPSHOT)s->key(VK_SNAPSHOT);return 0;
-    case WM_DESTROY:s->savePosition();s->positionReady=false;s->hwnd=nullptr;s->brush.Reset();s->target.Reset();s->listening=false;s->confirmation=false;return 0;
+    case WM_DESTROY:KillTimer(hwnd,RENDER_RETRY_TIMER);s->savePosition();s->positionReady=false;s->hwnd=nullptr;s->brush.Reset();s->target.Reset();s->listening=false;s->confirmation=false;return 0;
     }
     return DefWindowProcW(hwnd,message,wp,lp);
 }
