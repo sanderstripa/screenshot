@@ -1,4 +1,5 @@
-Screenshot 0.7.5
+Screenshot 0.7.6
 
-- New graphite squircle application icon with the approved minimal glass symbol.
-- Updated application, installer, desktop and Start menu branding, including all Windows icon sizes.
+- Исправлена обработка сбоев отрисовки пустого окна настроек.
+- Окно настроек использует непрозрачную программную отрисовку, повторяет попытку после сбоя и восстанавливает поверхность при смене дисплея.
+- Проверено на Windows: светлая и тёмная темы, сворачивание/восстановление и повторное открытие окна (6 проверок видимого интерфейса).
