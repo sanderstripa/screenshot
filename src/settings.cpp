@@ -142,7 +142,7 @@ struct Settings {
     }
     void theme() {
         BOOL dark=!light;DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));
-        COLORREF outline=light?RGB(218,218,218):RGB(45,47,50);
+        COLORREF outline=0xfffffffe; // Same custom border policy as Torrent.
         DwmSetWindowAttribute(hwnd,DWMWA_BORDER_COLOR,&outline,sizeof(outline));
         backdrop.reset();InvalidateRect(hwnd,nullptr,FALSE);
     }
@@ -220,7 +220,7 @@ struct Settings {
         if(confirmation||sheetProgress>0) {
             backdrop.draw(target.Get(),WIDTH,HEIGHT,!light);
             target->SetTransform(D2D1::Matrix3x2F::Translation(0,-340*(1-sheetProgress)));
-            for(int i=20;i>0;--i){brush->SetColor(D2D1::ColorF(0,light?.012f:.02f));target->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(-i*.5f,0,WIDTH+i*.5f,314+i),14,14),brush.Get());}
+            for(int i=20;i>0;--i){brush->SetColor(D2D1::ColorF(0,light?.012f:.02f));target->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(-i*.5f,0,WIDTH+i*.5f,314.f+i),14,14),brush.Get());}
             round(D2D1::RectF(0,-20,WIDTH,314),14,surface());
             text(L"Print Screen",D2D1::RectF(28,24,432,54),title.Get(),ink());
             text(tr(L"Заменить системное действие клавиши?",L"Replace the Windows key action?"),D2D1::RectF(28,76,432,119),section.Get(),ink());
@@ -456,7 +456,7 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
     SetWindowPos(s.hwnd,nullptr,position.x,position.y,width,height,SWP_NOZORDER|SWP_NOACTIVATE);
     s.positionReady=true;
     DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;DwmSetWindowAttribute(s.hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
-    MARGINS margins{1,1,1,1};DwmExtendFrameIntoClientArea(s.hwnd,&margins);s.theme();
+    MARGINS margins{0,0,0,0};DwmExtendFrameIntoClientArea(s.hwnd,&margins);s.theme();
     SetWindowPos(s.hwnd,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
     ShowWindow(s.hwnd,SW_SHOWNORMAL);
     // A process launched hidden at login must still show its first settings window.

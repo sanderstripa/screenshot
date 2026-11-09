@@ -16,6 +16,8 @@ import (
 // with the embedded release payload in a path containing spaces and Cyrillic.
 func TestFinishOpensVisibleScreenshot(t *testing.T) {
     if os.Getenv("GITHUB_ACTIONS") != "true" || os.Getenv("CONNECT_INSTALLER_CI_TEST") != "1" { t.Skip("disposable Windows runner required") }
+    a:=New();dir:=t.TempDir()+`\Screenshot тест folder`
+    if err:=a.Install(core.Options{Path:dir,Language:"ru",Theme:"light"});err!=nil {t.Fatal(err)}
     k,_,err:=registry.CreateKey(registry.CURRENT_USER,settingsKey,registry.QUERY_VALUE|registry.SET_VALUE)
     if err!=nil {t.Fatal(err)}
     t.Cleanup(func(){k.Close()})
@@ -23,10 +25,8 @@ func TestFinishOpensVisibleScreenshot(t *testing.T) {
         name:=name;old,_,readErr:=k.GetIntegerValue(name)
         t.Cleanup(func(){if readErr==nil{k.SetDWordValue(name,uint32(old))}else{k.DeleteValue(name)}})
     }
-    // Keep a working harmless binding; the launch regression must not alter Windows Snipping.
+    // Keep a harmless binding without changing Windows Snipping.
     k.SetDWordValue("HotkeyVK",0x87);k.SetDWordValue("HotkeyModifiers",0)
-    a:=New();dir:=t.TempDir()+`\Screenshot тест folder`
-    if err=a.Install(core.Options{Path:dir,Language:"ru",Theme:"light"});err!=nil {t.Fatal(err)}
     t.Cleanup(func(){a.stop();if e:=a.Remove();e!=nil{t.Error(e)}})
     a.hotkeyDone=true
     cls:=windows.StringToUTF16Ptr("ScreenshotSettings")
