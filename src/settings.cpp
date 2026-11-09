@@ -2,7 +2,7 @@
 #define NOMINMAX
 #include "settings.h"
 #include "connect_ui.h"
-#include "approved_settings_icon.h"
+#include "settings_backdrop.h"
 #include "bundled_font.h"
 #include <windowsx.h>
 #include <d2d1.h>
@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <string>
 #include <memory>
+#include <vector>
+#include <cmath>
 
 using Microsoft::WRL::ComPtr;
 using Microsoft::WRL::Make;
@@ -21,7 +23,8 @@ using Microsoft::WRL::RuntimeClass;
 using Microsoft::WRL::RuntimeClassFlags;
 using Microsoft::WRL::ClassicCom;
 namespace {
-constexpr int WIDTH=520, HEIGHT=382;
+constexpr int WIDTH=460, HEIGHT=636;
+constexpr UINT_PTR SHEET_TIMER=3;
 constexpr UINT_PTR RENDER_RETRY_TIMER=2;
 constexpr wchar_t CONFIG[]=L"Software\\SanderStripa\\Screenshot";
 bool readDword(const wchar_t* name,DWORD& value) {
@@ -66,7 +69,11 @@ std::wstring shortcutName(UINT vk,UINT mod) {
 struct Settings {
     HINSTANCE instance{};HWND hwnd{};float scale=1;
     UINT vk=VK_SNAPSHOT,mod=0,savedVK=VK_SNAPSHOT,savedMod=0;
-    bool light=false,listening=false,confirmation=false,preview=false,appearance=false,english=false;
+    bool light=false,listening=false,confirmation=false,preview=false,english=false;
+    bool languageOpen=false,available=false;
+    float sheetProgress=0;ULONGLONG sheetTick=0;
+    SettingsBackdrop backdrop;
+    std::wstring version;
     bool keyboardFocus=false,positionReady=false;
     void savePosition() {
         if(preview||!positionReady||!hwnd||IsIconic(hwnd))return;
@@ -83,7 +90,6 @@ struct Settings {
     std::wstring status,notice;
     std::function<bool(UINT,UINT)> apply;
     ComPtr<ID2D1Factory> graphics;
-    ComPtr<ID2D1PathGeometry> settingsIcon;
     ComPtr<ID2D1HwndRenderTarget> target;
     ComPtr<ID2D1SolidColorBrush> brush;
     ComPtr<IDWriteFactory> fonts;
@@ -101,9 +107,12 @@ struct Settings {
         if(smallIcon)DestroyIcon(smallIcon);
     }
     D2D1_COLOR_F color(UINT rgb) {return D2D1::ColorF(rgb);}
-    UINT ink() const {return ConnectUI::ink(light);}
-    UINT muted() const {return ConnectUI::muted(light);}
-    UINT border() const {return ConnectUI::line(light);}
+    UINT ink() const {return light?0x242628:0xeeeeef;}
+    UINT muted() const {return light?0x73767b:0x96979d;}
+    UINT border() const {return light?0xe6e7e9:0x35363b;}
+    UINT surface() const {return light?0xfcfcfd:0x202124;}
+    UINT field() const {return light?0xf3f4f5:0x28292d;}
+    UINT background() const {return light?0xffffff:0x08090b;}
     void text(const std::wstring& value,D2D1_RECT_F rect,IDWriteTextFormat* font,
         UINT rgb,float spacing=0,bool center=false) {
         ComPtr<IDWriteTextLayout> layout;
@@ -125,33 +134,17 @@ struct Settings {
         brush->SetColor(color(border()));target->DrawLine(D2D1::Point2F(28,y),D2D1::Point2F(492,y),brush.Get(),1);
     }
     void button(D2D1_RECT_F rect,const wchar_t* value,bool primary=false,int id=-1) {
-        const UINT surface=primary?ConnectUI::accent(light):ConnectUI::hover(light);
+        const UINT surface=primary?ink():(light?0xfcfcfd:0x111215);
         round(rect,8,surface);
         if(!primary)round(rect,8,border(),false);
         if(id>=0)ConnectUI::feedback(target.Get(),brush.Get(),rect,color(ink()),hovered==id,pressed==id,keyboardFocus&&focused==id);
-        text(value,rect,body.Get(),primary?ConnectUI::inverse(light):ink(),0,true);
-    }
-    void choice(D2D1_RECT_F rect,const wchar_t* value,bool selected,int id,int icon=-1) {
-        round(rect,8,selected?ConnectUI::hover(light):ConnectUI::background(light));
-        round(rect,8,selected&&icon>=0?muted():border(),false);
-        UINT foreground=selected?ink():muted();
-        if(icon>=0) {
-            ComPtr<IDWriteTextLayout> layout;DWRITE_TEXT_METRICS metrics{};
-            fonts->CreateTextLayout(value,static_cast<UINT32>(wcslen(value)),hintFont.Get(),200,32,&layout);
-            if(layout)layout->GetMetrics(&metrics);
-            float left=rect.left+((rect.right-rect.left)-metrics.width-18)/2;
-            brush->SetColor(color(foreground));
-            ConnectUI::drawIcon(target.Get(),brush.Get(),static_cast<ConnectUI::Icon>(icon),left,rect.top+9.5f,13);
-            text(value,D2D1::RectF(left+18,rect.top+9,rect.right,rect.bottom),hintFont.Get(),foreground,0,false);
-            // Vertically center without changing the neutral choice typography.
-        } else text(value,rect,hintFont.Get(),foreground,0,true);
-        if(keyboardFocus&&focused==id)ConnectUI::feedback(target.Get(),brush.Get(),rect,color(muted()),false,false,true);
+        text(value,rect,body.Get(),primary?background():ink(),0,true);
     }
     void theme() {
         BOOL dark=!light;DwmSetWindowAttribute(hwnd,DWMWA_USE_IMMERSIVE_DARK_MODE,&dark,sizeof(dark));
-        COLORREF outline=light?RGB(218,218,218):RGB(45,47,50);
+        COLORREF outline=0xfffffffe; // Same custom border policy as Torrent.
         DwmSetWindowAttribute(hwnd,DWMWA_BORDER_COLOR,&outline,sizeof(outline));
-        InvalidateRect(hwnd,nullptr,FALSE);
+        backdrop.reset();InvalidateRect(hwnd,nullptr,FALSE);
     }
     void renderFailed(HDC dc) {
         brush.Reset();target.Reset();
@@ -180,58 +173,67 @@ struct Settings {
             if(FAILED(result)){renderFailed(ps.hdc);EndPaint(hwnd,&ps);return;}
         }
         target->SetDpi(96*scale,96*scale);target->BeginDraw();
-        target->Clear(color(ConnectUI::background(light)));
-        text(L"SCREENSHOT.",D2D1::RectF(28,27,400,58),title.Get(),ink(),1.8f);
-        brush->SetColor(color(hovered==11||pressed==11?ink():muted()));
-        target->DrawLine(D2D1::Point2F(481,31),D2D1::Point2F(489,39),brush.Get(),1);
-        target->DrawLine(D2D1::Point2F(489,31),D2D1::Point2F(481,39),brush.Get(),1);
-        brush->SetColor(color(hovered==10||pressed==10?ink():muted()));
-        target->DrawLine(D2D1::Point2F(436,35),D2D1::Point2F(446,35),brush.Get(),1);
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(420,18,460,52),color(ink()),false,false,keyboardFocus&&focused==10);
-        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(464,18,504,52),color(ink()),false,false,keyboardFocus&&focused==11);
-        line(80);
-        text(tr(L"НАСТРОЙКИ",L"SETTINGS"),D2D1::RectF(appearance?55.0f:28.0f,98,296,128),title.Get(),ink(),1.8f);
-        if(appearance) {
-            brush->SetColor(color(muted()));ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Back,28,103,17);
-            line(138);
-            brush->SetColor(color(muted()));ConnectUI::drawIcon(target.Get(),brush.Get(),ConnectUI::Icon::Palette,28,153,17);
-            text(tr(L"ВНЕШНИЙ ВИД",L"APPEARANCE"),D2D1::RectF(55,155,400,176),hintFont.Get(),ink(),1.2f);
-            choice(D2D1::RectF(424,148,456,176),L"RU",!english,6);
-            choice(D2D1::RectF(460,148,492,176),L"EN",english,7);
-            choice(D2D1::RectF(28,184,180,216),tr(L"Система",L"System"),themeMode==0,3,0);
-            choice(D2D1::RectF(184,184,336,216),tr(L"Светлая",L"Light"),themeMode==1,4,1);
-            choice(D2D1::RectF(340,184,492,216),tr(L"Тёмная",L"Dark"),themeMode==2,5,2);
-            line(232);
-        } else if(confirmation) {
-            text(L"PRINT SCREEN",D2D1::RectF(28,146,492,175),section.Get(),ink(),1);
-            text(tr(L"Заменить системное действие клавиши?",L"Replace the Windows action?"),D2D1::RectF(28,186,492,221),body.Get(),ink());
-            text(tr(L"Print Screen будет открывать Screenshot вместо «Ножниц». Windows может потребовать выхода из сеанса.",L"Print Screen will open Screenshot instead of Snipping Tool. Windows may require signing out."),
-                D2D1::RectF(28,232,492,302),body.Get(),muted());
-            line(314);
-            button(D2D1::RectF(28,332,182,368),tr(L"Отмена",L"Cancel"),false,8);
-            button(D2D1::RectF(316,332,492,368),tr(L"Да, заменить",L"Yes, replace"),true,1);
-        } else {
-            brush->SetColor(color(hovered==2||pressed==2?ink():muted()));
-            drawApprovedSettingsIcon(target.Get(),brush.Get(),settingsIcon.Get(),462,104,24);
-            if(keyboardFocus&&focused==2){brush->SetColor(color(ink()));target->DrawRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(455,95,497,137),10,10),brush.Get(),2);}
-            text(tr(L"ГОРЯЧАЯ КЛАВИША",L"KEYBOARD SHORTCUT"),D2D1::RectF(28,157,492,182),section.Get(),ink(),1);
-            round(D2D1::RectF(28,190,492,226),8,ConnectUI::background(light));
-            round(D2D1::RectF(28,190,492,226),8,listening?muted():border(),false);
-            ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,190,492,226),color(ink()),hovered==0,pressed==0,keyboardFocus&&focused==0);
-            text(listening?tr(L"Нажмите сочетание…",L"Press a shortcut…"):shortcutName(vk,mod),
-                D2D1::RectF(42,190,478,226),body.Get(),ink(),0,true);
-            text(status.empty()?(listening?tr(L"Esc — отмена",L"Esc — cancel"):tr(L"Нажмите поле, затем нужную клавишу или сочетание.",L"Click the field, then press a key or shortcut.")):status,
-                D2D1::RectF(28,249,492,302),hintFont.Get(),muted());
-            line(314);
-            button(D2D1::RectF(28,332,210,368),tr(L"Открыть папку",L"Open folder"),false,8);
-            button(D2D1::RectF(340,332,492,368),tr(L"Сохранить",L"Save"),true,1);
+        target->Clear(color(background()));
+        text(L"SCREENSHOT.",D2D1::RectF(28,20,340,49),title.Get(),ink(),1.6f);
+        for(int id:{10,11}) {
+            float cx=id==10?390.f:430.f;
+            if(hovered==id||pressed==id)round(D2D1::RectF(cx-16,16,cx+16,48),16,id==11?(light?0xf6d1d9:0x54242f):(light?0xededef:0x202125));
+            brush->SetColor(color(ink()));
+            if(id==10)target->DrawLine(D2D1::Point2F(cx-6,32),D2D1::Point2F(cx+6,32),brush.Get(),1.25f);
+            else {target->DrawLine(D2D1::Point2F(cx-5,27),D2D1::Point2F(cx+5,37),brush.Get(),1.25f);target->DrawLine(D2D1::Point2F(cx+5,27),D2D1::Point2F(cx-5,37),brush.Get(),1.25f);}
+            ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(cx-16,16,cx+16,48),color(ink()),false,false,keyboardFocus&&focused==id);
+        }
+        text(tr(L"Горячая клавиша",L"Keyboard shortcut"),D2D1::RectF(28,80,432,103),section.Get(),ink());
+        round(D2D1::RectF(28,110,432,146),8,field());round(D2D1::RectF(28,110,432,146),8,listening?muted():border(),false);
+        ConnectUI::feedback(target.Get(),brush.Get(),D2D1::RectF(28,110,432,146),color(ink()),hovered==0,pressed==0,keyboardFocus&&focused==0);
+        // The field always describes the committed shortcut, never a pending candidate.
+        text(listening?tr(L"Нажмите сочетание…",L"Press a shortcut…"):shortcutName(savedVK,savedMod),D2D1::RectF(40,110,420,146),body.Get(),ink(),0,true);
+        text(status.empty()?(listening?tr(L"Esc — отмена",L"Esc — cancel"):tr(L"Нажмите поле, затем нужную клавишу или сочетание",L"Click the field, then press a key or shortcut")):status,D2D1::RectF(28,155,432,195),hintFont.Get(),muted());
+        text(tr(L"Папка скриншотов",L"Screenshot folder"),D2D1::RectF(28,201,432,224),section.Get(),ink());
+        button(D2D1::RectF(28,232,208,268),tr(L"Открыть папку",L"Open folder"),false,8);
+        text(tr(L"Внешний вид",L"Appearance"),D2D1::RectF(28,292,432,315),section.Get(),ink());
+        text(tr(L"Тема",L"Theme"),D2D1::RectF(28,326,432,348),body.Get(),ink());
+        round(D2D1::RectF(28,355,432,395),8,field());round(D2D1::RectF(28,355,432,395),8,border(),false);
+        for(int id=3;id<=5;++id) {
+            float left=28+(id-3)*(404.f/3);auto r=D2D1::RectF(left+2,357,left+404.f/3-2,393);
+            if(themeMode==DWORD(id-3)){round(r,6,surface());round(r,6,border(),false);}
+            else if(hovered==id)round(r,6,light?0xededef:0x202125);
+            text(id==3?tr(L"Системная",L"System"):id==4?tr(L"Светлая",L"Light"):tr(L"Тёмная",L"Dark"),r,hintFont.Get(),ink(),0,true);
+            if(keyboardFocus&&focused==id)ConnectUI::feedback(target.Get(),brush.Get(),r,color(muted()),false,false,true);
+        }
+        text(tr(L"Язык интерфейса",L"Interface language"),D2D1::RectF(28,421,285,447),body.Get(),ink());
+        auto lang=D2D1::RectF(300,415,432,451);round(lang,7,field());round(lang,7,border(),false);
+        text(english?L"English":L"Русский",D2D1::RectF(312,415,410,451),body.Get(),ink(),0,true);
+        brush->SetColor(color(muted()));target->DrawLine(D2D1::Point2F(414,431),D2D1::Point2F(418,435),brush.Get(),1.25f);target->DrawLine(D2D1::Point2F(418,435),D2D1::Point2F(422,431),brush.Get(),1.25f);
+        ConnectUI::feedback(target.Get(),brush.Get(),lang,color(ink()),hovered==6,false,keyboardFocus&&focused==6);
+        text(tr(L"О Screenshot",L"About Screenshot"),D2D1::RectF(28,478,432,501),section.Get(),ink());
+        text(tr(L"Версия Screenshot",L"Screenshot version"),D2D1::RectF(28,515,280,539),body.Get(),ink());
+        text(version,D2D1::RectF(340,515,432,539),body.Get(),ink(),0,true);
+        text(tr(L"Разработчик",L"Developer"),D2D1::RectF(28,547,280,571),body.Get(),ink());
+        text(L"Sander Stripa",D2D1::RectF(300,547,432,571),body.Get(),muted(),0,true);
+        button(D2D1::RectF(320,580,432,612),tr(L"Обновить",L"Update"),false,9);
+        text(L"by connect.",D2D1::RectF(165,611,295,633),hintFont.Get(),hovered==12?(light?0x55585d:0xb6b7bd):muted(),0,true);
+        if(languageOpen) {
+            round(D2D1::RectF(298,454,434,532),8,surface());round(D2D1::RectF(298,454,434,532),8,border(),false);
+            for(int id:{13,14}) {auto r=D2D1::RectF(302,id==13?458.f:493.f,430,id==13?493.f:528.f);if(hovered==id||focused==id)round(r,6,field());text(id==13?L"Русский":L"English",r,body.Get(),ink(),0,true);}
+        }
+        if(confirmation||sheetProgress>0) {
+            backdrop.draw(target.Get(),WIDTH,HEIGHT,!light);
+            target->SetTransform(D2D1::Matrix3x2F::Translation(0,-340*(1-sheetProgress)));
+            for(int i=20;i>0;--i){brush->SetColor(D2D1::ColorF(0,light?.012f:.02f));target->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(-i*.5f,0,WIDTH+i*.5f,314.f+i),14,14),brush.Get());}
+            round(D2D1::RectF(0,-20,WIDTH,314),14,surface());
+            text(L"Print Screen",D2D1::RectF(28,24,432,54),title.Get(),ink());
+            text(tr(L"Заменить системное действие клавиши?",L"Replace the Windows key action?"),D2D1::RectF(28,76,432,119),section.Get(),ink());
+            text(tr(L"Print Screen будет открывать Screenshot вместо стандартного инструмента Windows.",L"Print Screen will open Screenshot instead of the Windows capture tool."),D2D1::RectF(28,127,432,178),body.Get(),ink());
+            text(tr(L"Windows может потребовать выхода из сеанса. Если появится системный запрос, подтвердите изменение в нём.",L"Windows may require signing out. If Windows requests permission, confirm it in the system dialog."),D2D1::RectF(28,187,432,240),hintFont.Get(),muted());
+            button(D2D1::RectF(154,258,264,294),tr(L"Отмена",L"Cancel"),false,15);
+            button(D2D1::RectF(276,258,432,294),tr(L"Да, заменить",L"Yes, replace"),true,1);
+            target->SetTransform(D2D1::Matrix3x2F::Identity());
         }
         if(!notice.empty()) {
-            round(D2D1::RectF(24,94,496,372),8,ConnectUI::background(light));
-            text(tr(L"УВЕДОМЛЕНИЕ",L"NOTICE"),D2D1::RectF(28,110,492,140),title.Get(),ink());
-            text(L"!",D2D1::RectF(28,164,48,192),body.Get(),ink());
-            text(notice,D2D1::RectF(56,164,492,302),body.Get(),muted());
-            button(D2D1::RectF(340,332,492,368),L"OK",true,1);
+            round(D2D1::RectF(20,72,440,304),8,surface());
+            text(notice,D2D1::RectF(40,100,420,232),body.Get(),ink());
+            button(D2D1::RectF(310,248,420,284),L"OK",true,1);
         }
         HRESULT result=target->EndDraw();
         if(FAILED(result))renderFailed(ps.hdc);
@@ -265,33 +267,47 @@ struct Settings {
         return create(18,DWRITE_FONT_WEIGHT_MEDIUM,title)&&create(12,DWRITE_FONT_WEIGHT_SEMI_BOLD,section)
             &&create(13,DWRITE_FONT_WEIGHT_NORMAL,body)&&create(11,DWRITE_FONT_WEIGHT_NORMAL,hintFont);
     }
+    void sheet(bool open) {
+        languageOpen=false;listening=false;
+        if(open) {backdrop.reset();UpdateWindow(hwnd);backdrop.capture(hwnd,!light);}
+        confirmation=open;sheetTick=GetTickCount64();
+        BOOL animate=TRUE;SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION,0,&animate,0);
+        if(animate)SetTimer(hwnd,SHEET_TIMER,16,nullptr);else sheetProgress=open?1.f:0.f;
+        focused=open?15:0;InvalidateRect(hwnd,nullptr,FALSE);
+    }
+    void cancel() {vk=savedVK;mod=savedMod;sheet(false);}
     void save(bool confirmed=false) {
-        if(preview){status=tr(L"Предпросмотр настроек",L"Settings preview");return;}
         listening=false;
-        if(vk==VK_SNAPSHOT&&mod==0&&!confirmed){confirmation=true;InvalidateRect(hwnd,nullptr,FALSE);return;}
-        if(confirmed) {
-            HKEY key{};
-            if(RegCreateKeyExW(HKEY_CURRENT_USER,L"Control Panel\\Keyboard",0,nullptr,0,KEY_SET_VALUE,nullptr,&key,nullptr)!=ERROR_SUCCESS) {
-                status=tr(L"Windows не разрешила изменить Print Screen.",L"Windows could not change Print Screen.");confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);return;
-            }
-            DWORD zero=0;
-            LONG code=RegSetValueExW(key,L"PrintScreenKeyForSnippingEnabled",0,REG_DWORD,reinterpret_cast<BYTE*>(&zero),sizeof(zero));
-            RegCloseKey(key);
-            if(code!=ERROR_SUCCESS){status=tr(L"Не удалось изменить действие Print Screen.",L"Could not change the Print Screen action.");confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);return;}
+        if(preview){vk=savedVK;mod=savedMod;status=tr(L"Предпросмотр интерфейса",L"Interface preview");return;}
+        DWORD snipping=1,size=sizeof(snipping);bool existed=false,changed=false;
+        if(vk==VK_SNAPSHOT&&mod==0) {
+            existed=RegGetValueW(HKEY_CURRENT_USER,L"Control Panel\\Keyboard",L"PrintScreenKeyForSnippingEnabled",RRF_RT_REG_DWORD,nullptr,&snipping,&size)==ERROR_SUCCESS;
+            if(!confirmed&&(snipping!=0||!available||vk!=savedVK||mod!=savedMod)){sheet(true);return;}
+        }
+        auto restoreWindows=[&] {
+            if(!changed)return;HKEY k{};
+            if(RegOpenKeyExW(HKEY_CURRENT_USER,L"Control Panel\\Keyboard",0,KEY_SET_VALUE,&k)==ERROR_SUCCESS){if(existed)RegSetValueExW(k,L"PrintScreenKeyForSnippingEnabled",0,REG_DWORD,reinterpret_cast<BYTE*>(&snipping),sizeof(snipping));else RegDeleteValueW(k,L"PrintScreenKeyForSnippingEnabled");RegCloseKey(k);}
             SendMessageTimeoutW(HWND_BROADCAST,WM_SETTINGCHANGE,0,reinterpret_cast<LPARAM>(L"Control Panel\\Keyboard"),SMTO_ABORTIFHUNG,300,nullptr);
+        };
+        bool ok=true;
+        if(confirmed) {
+            HKEY k{};DWORD zero=0;
+            ok=RegCreateKeyExW(HKEY_CURRENT_USER,L"Control Panel\\Keyboard",0,nullptr,0,KEY_SET_VALUE,nullptr,&k,nullptr)==ERROR_SUCCESS;
+            if(ok){ok=RegSetValueExW(k,L"PrintScreenKeyForSnippingEnabled",0,REG_DWORD,reinterpret_cast<BYTE*>(&zero),sizeof(zero))==ERROR_SUCCESS;RegCloseKey(k);}
+            changed=ok;
+            if(ok)SendMessageTimeoutW(HWND_BROADCAST,WM_SETTINGCHANGE,0,reinterpret_cast<LPARAM>(L"Control Panel\\Keyboard"),SMTO_ABORTIFHUNG,300,nullptr);
         }
-        // Verify first, then commit both registry fields together. Keep old runtime shortcut on failure.
-        bool active=apply(vk,mod);
-        if(!active&&!confirmed)status=tr(L"Это сочетание занято. Выберите другое.",L"This shortcut is in use. Choose another.");
-        else if(!writeDword(L"HotkeyVK",vk)||!writeDword(L"HotkeyModifiers",mod)) {
-            writeDword(L"HotkeyVK",savedVK);writeDword(L"HotkeyModifiers",savedMod);
-            if(active)apply(savedVK,savedMod);
-            status=tr(L"Не удалось сохранить настройки. Прежняя клавиша сохранена.",L"Could not save settings. The previous shortcut is retained.");
-        } else {
-            savedVK=vk;savedMod=mod;
-            status=active?tr(L"Горячая клавиша сохранена.",L"Shortcut saved.") : tr(L"Print Screen сохранена. Выйдите из сеанса Windows и войдите снова.",L"Print Screen saved. Sign out of Windows and back in.");
+        if(!ok)status=tr(L"Windows не разрешила изменить Print Screen.",L"Windows could not change Print Screen.");
+        else if(!apply(vk,mod)) {
+            restoreWindows();ok=false;
+            status=confirmed?tr(L"Windows пока не разрешила перехват. Прежняя клавиша сохранена; может потребоваться выход из сеанса.",L"Windows has not allowed capture. Previous shortcut retained; signing out may be required."):tr(L"Это сочетание занято. Прежняя клавиша сохранена.",L"Shortcut is in use. Previous shortcut retained.");
+        } else if(!writeDword(L"HotkeyVK",vk)||!writeDword(L"HotkeyModifiers",mod)) {
+            writeDword(L"HotkeyVK",savedVK);writeDword(L"HotkeyModifiers",savedMod);available=apply(savedVK,savedMod);restoreWindows();ok=false;
+            status=tr(L"Не удалось сохранить настройки. Прежняя клавиша восстановлена.",L"Could not save settings. Previous shortcut restored.");
         }
-        confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);
+        if(ok){savedVK=vk;savedMod=mod;available=true;status.clear();}
+        else {vk=savedVK;mod=savedMod;}
+        if(confirmation)sheet(false);InvalidateRect(hwnd,nullptr,FALSE);
     }
     void key(UINT key) {
         if(!listening)return;
@@ -304,58 +320,59 @@ struct Settings {
         if((GetKeyState(VK_LWIN)|GetKeyState(VK_RWIN))&0x8000)modifiers|=MOD_WIN;
         bool special=(key>=VK_F1&&key<=VK_F24)||key==VK_SNAPSHOT||key==VK_PAUSE||key==VK_SCROLL||key==VK_INSERT||key==VK_HOME;
         if(!special&&(!(modifiers&(MOD_CONTROL|MOD_ALT|MOD_WIN))||key<VK_SPACE)){MessageBeep(MB_ICONWARNING);return;}
-        vk=key;mod=modifiers;listening=false;status.clear();InvalidateRect(hwnd,nullptr,FALSE);
+        vk=key;mod=modifiers;listening=false;status.clear();save();InvalidateRect(hwnd,nullptr,FALSE);
     }
     int hit(float x,float y) const {
-        if(y>=18&&y<=52){if(x>=464)return 11;if(x>=420&&x<=460)return 10;}
-        if(!notice.empty())return y>=332&&y<=368&&x>=340&&x<=492?1:-1;
-        if(appearance) {
-            if(x>=24&&x<=50&&y>=94&&y<=134)return 8;
-            if(y>=184&&y<=216){if(x>=28&&x<=180)return 3;if(x>=184&&x<=336)return 4;if(x>=340&&x<=492)return 5;}
-            if(y>=148&&y<=176){if(x>=424&&x<=456)return 6;if(x>=460&&x<=492)return 7;}
-        } else {
-            if(!confirmation&&x>=458&&x<=494&&y>=98&&y<=134)return 2;
-            if(!confirmation&&x>=28&&x<=492&&y>=190&&y<=226)return 0;
-            if(y>=332&&y<=368){if(x>=28&&x<=210)return 8;if(x>=316&&x<=492)return 1;}
+        if(!notice.empty())return y>=248&&y<=284&&x>=310&&x<=420?1:-1;
+        if(confirmation||sheetProgress>0) {
+            if(!confirmation||sheetProgress<.99f)return -1;
+            if(y>=258&&y<=294){if(x>=154&&x<=264)return 15;if(x>=276&&x<=432)return 1;}return -1;
         }
+        if(y>=16&&y<=48){if(x>=414&&x<=446)return 11;if(x>=374&&x<=406)return 10;}
+        if(languageOpen&&x>=298&&x<=434){if(y>=458&&y<493)return 13;if(y>=493&&y<=528)return 14;}
+        if(x>=28&&x<=432&&y>=110&&y<=146)return 0;
+        if(x>=28&&x<=208&&y>=232&&y<=268)return 8;
+        if(x>=28&&x<432&&y>=355&&y<=395)return 3+int((x-28)/(404.f/3));
+        if(x>=300&&x<=432&&y>=415&&y<=451)return 6;
+        if(x>=320&&x<=432&&y>=580&&y<=612)return 9;
+        if(x>=165&&x<=295&&y>=613&&y<=633)return 12;
         return -1;
     }
     void activate(int id) {
+        if(!notice.empty()){if(id==1)notice.clear();InvalidateRect(hwnd,nullptr,FALSE);return;}
+        if(confirmation){if(id==15)cancel();else if(id==1)save(true);return;}
+        if(sheetProgress>0)return;
         if(id==11){DestroyWindow(hwnd);return;}
         if(id==10){ShowWindow(hwnd,SW_MINIMIZE);return;}
-        focused=id;
-        if(!notice.empty()){if(id==1)notice.clear();InvalidateRect(hwnd,nullptr,FALSE);return;}
-        if(appearance) {
-            if(id>=3&&id<=5) {
-                DWORD next=id-3;
-                bool nextLight=next==0?ConnectUI::systemLight():next==1;
-                if(preview||(writeDword(L"ThemeMode",next)&&writeDword(L"ThemeLight",nextLight?1:0))) {
-                    themeMode=next;light=nextLight;theme();
-                } else status=tr(L"Не удалось сохранить тему.",L"Could not save the theme.");
-            } else if(id==6||id==7) {
-                if(preview||writeDword(L"LanguageEN",id==7?1:0)){english=id==7;status.clear();}
-            } else if(id==8){appearance=false;focused=2;}
-        } else if(confirmation) {
-            if(id==8){confirmation=false;focused=0;}
-            else if(id==1)save(true);
-        } else if(id==2){appearance=true;listening=false;focused=3;}
-        else if(id==0){listening=true;status.clear();}
-        else if(id==1)save();
-        else if(id==8) {
-            wchar_t profile[32768]{};
-            if(GetEnvironmentVariableW(L"USERPROFILE",profile,32768)) {
-                std::wstring folder=std::wstring(profile)+L"\\Pictures\\Screenshot";
-                SHCreateDirectoryExW(hwnd,folder.c_str(),nullptr);
-                ShellExecuteW(hwnd,L"open",folder.c_str(),nullptr,nullptr,SW_SHOWNORMAL);
-            }
+        focused=id;listening=false;
+        if(id>=3&&id<=5) {
+            languageOpen=false;DWORD next=id-3,old=themeMode;bool nextLight=next==0?ConnectUI::systemLight():next==1;
+            if(preview||(writeDword(L"ThemeMode",next)&&writeDword(L"ThemeLight",nextLight?1:0))){themeMode=next;light=nextLight;status.clear();theme();}
+            else {writeDword(L"ThemeMode",old);writeDword(L"ThemeLight",light?1:0);status=tr(L"Не удалось сохранить тему.",L"Could not save theme.");}
+        } else if(id==6){languageOpen=!languageOpen;focused=english?14:13;}
+        else if(id==13||id==14) {
+            if(preview||writeDword(L"LanguageEN",id==14?1:0)){english=id==14;status.clear();}
+            else status=tr(L"Не удалось сохранить язык.",L"Could not save language.");
+            languageOpen=false;focused=6;
+        } else {
+            languageOpen=false;
+            if(id==0){listening=true;status.clear();}
+            else if(id==8) {
+                wchar_t profile[32768]{};
+                if(GetEnvironmentVariableW(L"USERPROFILE",profile,32768)) {
+                    std::wstring folder=std::wstring(profile)+L"\\Pictures\\Screenshot";
+                    SHCreateDirectoryExW(hwnd,folder.c_str(),nullptr);
+                    ShellExecuteW(hwnd,L"open",folder.c_str(),nullptr,nullptr,SW_SHOWNORMAL);
+                }
+            } else if(id==9||id==12)ShellExecuteW(hwnd,L"open",id==9?L"https://github.com/sanderstripa/screenshot/releases":L"https://connect.sanderstripa.com/",nullptr,nullptr,SW_SHOWNORMAL);
         }
         InvalidateRect(hwnd,nullptr,FALSE);
     }
     void click(float x,float y) {keyboardFocus=false;activate(hit(x,y));}
     void tab(bool reverse) {
         listening=false;keyboardFocus=true;
-        const int normal[]={2,0,8,1,10,11}, prefs[]={3,4,5,6,7,8,10,11}, consent[]={8,1,10,11}, modal[]={1,10,11};
-        auto list=!notice.empty()?modal:(appearance?prefs:(confirmation?consent:normal));int count=!notice.empty()?3:(appearance?8:(confirmation?4:6)),index=-1;
+        const std::vector<int> normal={0,8,3,4,5,6,9,12,10,11},consent={15,1},modal={1},languages={13,14};
+        const auto& list=!notice.empty()?modal:(confirmation?consent:(languageOpen?languages:normal));int count=int(list.size()),index=-1;
         for(int i=0;i<count;i++)if(list[i]==focused)index=i;
         focused=list[(index+(reverse?count-1:1)+count)%count];InvalidateRect(hwnd,nullptr,FALSE);
     }
@@ -367,17 +384,20 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
     if(message==WM_NCCREATE){s=static_cast<Settings*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams);s->hwnd=hwnd;SetWindowLongPtrW(hwnd,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(s));}
     if(!s)return DefWindowProcW(hwnd,message,wp,lp);
     switch(message) {
+    case WM_SYSCOMMAND:if((wp&0xfff0)==SC_MAXIMIZE)return 0;break;
+    case WM_NCLBUTTONDBLCLK:if(wp==HTCAPTION)return 0;break;
     case WM_NCCALCSIZE:if(wp)return 0;break;
-    case WM_NCHITTEST:{POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ScreenToClient(hwnd,&p);if(p.y/s->scale<70&&p.x/s->scale<400)return HTCAPTION;break;}
+    case WM_NCHITTEST:{POINT p{GET_X_LPARAM(lp),GET_Y_LPARAM(lp)};ScreenToClient(hwnd,&p);if(!s->confirmation&&s->sheetProgress==0&&p.y/s->scale<62&&p.x/s->scale<365)return HTCAPTION;return HTCLIENT;break;}
     case WM_SETTINGCHANGE:if(s->themeMode==0){s->light=ConnectUI::systemLight();s->theme();}return 0;
+    case WM_SETCURSOR:if(LOWORD(lp)==HTCLIENT){POINT p;GetCursorPos(&p);ScreenToClient(hwnd,&p);SetCursor(LoadCursorW(nullptr,s->hit(p.x/s->scale,p.y/s->scale)==12?IDC_HAND:IDC_ARROW));return TRUE;}break;
     case WM_MOUSEMOVE:{int hit=s->hit(GET_X_LPARAM(lp)/s->scale,GET_Y_LPARAM(lp)/s->scale);if(hit!=s->hovered){s->hovered=hit;InvalidateRect(hwnd,nullptr,FALSE);}TRACKMOUSEEVENT track{sizeof(track),TME_LEAVE,hwnd,0};TrackMouseEvent(&track);return 0;}
     case WM_MOUSELEAVE:s->hovered=-1;InvalidateRect(hwnd,nullptr,FALSE);return 0;
     case WM_LBUTTONDOWN:s->pressed=s->hit(GET_X_LPARAM(lp)/s->scale,GET_Y_LPARAM(lp)/s->scale);SetFocus(hwnd);InvalidateRect(hwnd,nullptr,FALSE);return 0;
     case WM_ERASEBKGND:return 1;
     case WM_PAINT:s->paint();return 0;
-    case WM_TIMER:if(wp==RENDER_RETRY_TIMER){KillTimer(hwnd,RENDER_RETRY_TIMER);InvalidateRect(hwnd,nullptr,FALSE);return 0;}break;
-    case WM_DISPLAYCHANGE:s->brush.Reset();s->target.Reset();s->renderFailures=0;InvalidateRect(hwnd,nullptr,FALSE);return 0;
-    case WM_SIZE:s->brush.Reset();s->target.Reset();InvalidateRect(hwnd,nullptr,FALSE);return 0;
+    case WM_TIMER:if(wp==SHEET_TIMER){auto now=GetTickCount64();float step=float(now-s->sheetTick)/220.f;s->sheetTick=now;s->sheetProgress=std::clamp(s->sheetProgress+(s->confirmation?step:-step),0.f,1.f);if(s->sheetProgress==(s->confirmation?1.f:0.f))KillTimer(hwnd,SHEET_TIMER);InvalidateRect(hwnd,nullptr,FALSE);return 0;}if(wp==RENDER_RETRY_TIMER){KillTimer(hwnd,RENDER_RETRY_TIMER);InvalidateRect(hwnd,nullptr,FALSE);return 0;}break;
+    case WM_DISPLAYCHANGE:s->backdrop.reset();s->brush.Reset();s->target.Reset();s->renderFailures=0;InvalidateRect(hwnd,nullptr,FALSE);return 0;
+    case WM_SIZE:s->backdrop.reset();s->brush.Reset();s->target.Reset();InvalidateRect(hwnd,nullptr,FALSE);return 0;
     case WM_WINDOWPOSCHANGED:s->savePosition();break;
     case WM_QUERYENDSESSION:s->savePosition();return TRUE;
     case WM_DPICHANGED:{s->scale=HIWORD(wp)/96.0f;auto r=reinterpret_cast<RECT*>(lp);SetWindowPos(hwnd,nullptr,r->left,r->top,int(WIDTH*s->scale),int(HEIGHT*s->scale),SWP_NOZORDER|SWP_NOACTIVATE);return 0;}
@@ -386,11 +406,11 @@ LRESULT CALLBACK settingsProc(HWND hwnd,UINT message,WPARAM wp,LPARAM lp) {
         if(message==WM_SYSKEYDOWN&&wp==VK_F4)return DefWindowProcW(hwnd,message,wp,lp);
         if(wp==VK_TAB){s->tab((GetKeyState(VK_SHIFT)&0x8000)!=0);return 0;}
         if(s->listening)s->key(static_cast<UINT>(wp));
-        else if(wp==VK_ESCAPE){if(!s->notice.empty()){s->notice.clear();InvalidateRect(hwnd,nullptr,FALSE);}else if(s->confirmation){s->confirmation=false;InvalidateRect(hwnd,nullptr,FALSE);}else if(s->appearance){s->appearance=false;s->focused=2;InvalidateRect(hwnd,nullptr,FALSE);}else DestroyWindow(hwnd);}
-        else if(wp==VK_RETURN||wp==VK_SPACE){if(s->focused>=0)s->activate(s->focused);else if(!s->appearance)s->save();}
+        else if(wp==VK_ESCAPE){if(!s->notice.empty()){s->notice.clear();InvalidateRect(hwnd,nullptr,FALSE);}else if(s->confirmation){s->cancel();}else if(s->languageOpen){s->languageOpen=false;InvalidateRect(hwnd,nullptr,FALSE);}else DestroyWindow(hwnd);}
+        else if(wp==VK_RETURN||wp==VK_SPACE){if(s->focused>=0)s->activate(s->focused);}
         return 0;
     case WM_KEYUP:case WM_SYSKEYUP:if(s->listening&&wp==VK_SNAPSHOT)s->key(VK_SNAPSHOT);return 0;
-    case WM_DESTROY:KillTimer(hwnd,RENDER_RETRY_TIMER);s->savePosition();s->positionReady=false;s->hwnd=nullptr;s->brush.Reset();s->target.Reset();s->listening=false;s->confirmation=false;return 0;
+    case WM_DESTROY:KillTimer(hwnd,SHEET_TIMER);s->sheetProgress=0;KillTimer(hwnd,RENDER_RETRY_TIMER);s->savePosition();s->positionReady=false;s->hwnd=nullptr;s->backdrop.reset();s->brush.Reset();s->target.Reset();s->listening=false;s->confirmation=false;return 0;
     }
     return DefWindowProcW(hwnd,message,wp,lp);
 }
@@ -400,7 +420,7 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
     if(settings&&settings->hwnd){ShowWindow(settings->hwnd,SW_RESTORE);SetForegroundWindow(settings->hwnd);return;}
     if(!settings) {
         settings=std::make_unique<Settings>();settings->instance=instance;
-        if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,settings->graphics.GetAddressOf()))||FAILED(createApprovedSettingsIcon(settings->graphics.Get(),settings->settingsIcon.GetAddressOf()))||!settings->initializeFonts()) {
+        if(FAILED(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,settings->graphics.GetAddressOf()))||!settings->initializeFonts()) {
             settings.reset();MessageBoxW(nullptr,L"Не удалось открыть настройки Screenshot.",L"Screenshot",MB_OK|MB_ICONERROR);return;
         }
         settings->icon=static_cast<HICON>(LoadImageW(instance,MAKEINTRESOURCEW(101),IMAGE_ICON,256,256,0));
@@ -411,22 +431,23 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
         wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hIcon=settings->icon;wc.hIconSm=settings->smallIcon;RegisterClassExW(&wc);
     }
     auto& s=*settings;s.apply=std::move(apply);s.vk=s.savedVK=vk;s.mod=s.savedMod=modifiers;
-    DWORD value=0;if(readDword(L"HotkeyVK",value))s.vk=s.savedVK=value;
-    value=0;if(readDword(L"HotkeyModifiers",value))s.mod=s.savedMod=value;
+    DWORD value=0;s.available=shortcutAvailable;
+    wchar_t exe[32768]{};GetModuleFileNameW(instance,exe,32768);DWORD ignored=0,bytes=GetFileVersionInfoSizeW(exe,&ignored);std::vector<BYTE> info(bytes);VS_FIXEDFILEINFO* fixed=nullptr;UINT length=0;
+    s.version=L"—";if(bytes&&GetFileVersionInfoW(exe,0,bytes,info.data())&&VerQueryValueW(info.data(),L"\\",reinterpret_cast<void**>(&fixed),&length)&&length>=sizeof(*fixed))s.version=std::to_wstring(HIWORD(fixed->dwProductVersionMS))+L"."+std::to_wstring(LOWORD(fixed->dwProductVersionMS))+L"."+std::to_wstring(HIWORD(fixed->dwProductVersionLS));
     value=0;readDword(L"ThemeLight",value);s.light=value!=0;
     s.themeMode=s.light?1:2;readDword(L"ThemeMode",s.themeMode);if(s.themeMode>2)s.themeMode=2;
     s.light=s.themeMode==0?ConnectUI::systemLight():s.themeMode==1;
     value=0;readDword(L"LanguageEN",value);s.english=value!=0;
-    s.appearance=false;s.keyboardFocus=false;s.focused=-1;s.hovered=-1;s.pressed=-1;
+    s.languageOpen=false;s.sheetProgress=0;s.confirmation=false;s.listening=false;s.keyboardFocus=false;s.focused=-1;s.hovered=-1;s.pressed=-1;
     s.preview=previewTheme>=0;if(s.preview)s.light=previewTheme!=0;
-    s.status=shortcutAvailable?L"":s.tr(L"Горячая клавиша недоступна. Выберите другую и сохраните.",L"Shortcut unavailable. Choose another and save.");
+    s.status=shortcutAvailable?L"":s.tr(L"Горячая клавиша недоступна. Назначьте другую.",L"Shortcut unavailable. Assign another.");
     s.scale=GetDpiForSystem()/96.0f;
     RECT work{};SystemParametersInfoW(SPI_GETWORKAREA,0,&work,0);
     int width=int(WIDTH*s.scale),height=int(HEIGHT*s.scale);
     POINT position{work.left+(work.right-work.left-width)/2,work.top+(work.bottom-work.top-height)/2};
     if(!s.preview)readPosition(position);
     position=visiblePosition(position,width,height);s.positionReady=false;
-    s.hwnd=CreateWindowExW(WS_EX_APPWINDOW,L"ScreenshotSettings",L"Screenshot — настройки",
+    s.hwnd=CreateWindowExW(WS_EX_APPWINDOW,L"ScreenshotSettings",L"Screenshot",
         WS_POPUP|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,position.x,
         position.y,width,height,nullptr,nullptr,instance,&s);
     if(!s.hwnd)return;
@@ -435,7 +456,7 @@ void showScreenshotSettings(HINSTANCE instance,UINT vk,UINT modifiers,bool short
     SetWindowPos(s.hwnd,nullptr,position.x,position.y,width,height,SWP_NOZORDER|SWP_NOACTIVATE);
     s.positionReady=true;
     DWM_WINDOW_CORNER_PREFERENCE corners=DWMWCP_ROUND;DwmSetWindowAttribute(s.hwnd,DWMWA_WINDOW_CORNER_PREFERENCE,&corners,sizeof(corners));
-    MARGINS margins{1,1,1,1};DwmExtendFrameIntoClientArea(s.hwnd,&margins);s.theme();
+    MARGINS margins{0,0,0,0};DwmExtendFrameIntoClientArea(s.hwnd,&margins);s.theme();
     SetWindowPos(s.hwnd,nullptr,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
     ShowWindow(s.hwnd,SW_SHOWNORMAL);
     // A process launched hidden at login must still show its first settings window.

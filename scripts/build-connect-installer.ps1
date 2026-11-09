@@ -45,12 +45,17 @@ $adapterSource=Join-Path $core 'adapters/screenshot/adapter_windows.go'
 $originalAdapter=[IO.File]::ReadAllBytes($adapterSource)
 $adapterIcon=Join-Path $core 'adapters/screenshot/Screenshot.ico'
 $originalAdapterIcon=if(Test-Path -LiteralPath $adapterIcon){[IO.File]::ReadAllBytes($adapterIcon)}else{$null}
+$launchTest=Join-Path $core 'adapters/screenshot/finish_launch_windows_test.go'
+if(Test-Path $launchTest){throw 'Unexpected existing launch regression test'}
 try {
 & (Join-Path $PSScriptRoot 'prepare-installer-icon.ps1') -CoreRoot $core -IconPath (Join-Path $repo 'assets/Screenshot.ico')
+& (Join-Path $PSScriptRoot 'prepare-installer-launch.ps1') -CoreRoot $core
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'installer_launch_windows_test.go') -Destination $launchTest
 & (Join-Path $core 'build.ps1') -Product 'screenshot' -PayloadPath $PayloadPath -Version $Version -OutFile $OutFile -ExtensionPath $ExtensionPath -ExpectedExecutable $ExpectedExecutable -ProductCommit $sourceCommit -Go $Go
 if($LASTEXITCODE){throw 'Shared installer build failed'}
 if($TestUI){& (Join-Path $core 'test-ui.ps1') -OutputDirectory (Join-Path $repo '.tmp/installer-review')}
 } finally {
+ Remove-Item -LiteralPath $launchTest -Force -ErrorAction SilentlyContinue
  [IO.File]::WriteAllBytes($coreIcon,$originalIcon)
  [IO.File]::WriteAllBytes($coreWindowIcon,$originalWindowIcon)
  [IO.File]::WriteAllBytes($adapterSource,$originalAdapter)
