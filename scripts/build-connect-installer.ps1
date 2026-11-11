@@ -40,6 +40,10 @@ $coreWindowIcon=Join-Path $core 'core/web/assets/icon.png'
 $originalWindowIcon=[IO.File]::ReadAllBytes($coreWindowIcon)
 Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot.ico') -Destination $coreIcon -Force
 Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot.png') -Destination $coreWindowIcon -Force
+# Apply only Screenshot's appearance to the pinned shared UI, then restore it.
+$coreStyle=Join-Path $core 'core/web/style.css'
+$originalStyle=[IO.File]::ReadAllBytes($coreStyle)
+$appearance=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'installer-appearance.css'))
 $sourceCommit=(git -C $repo rev-parse HEAD).Trim()
 $adapterSource=Join-Path $core 'adapters/screenshot/adapter_windows.go'
 $originalAdapter=[IO.File]::ReadAllBytes($adapterSource)
@@ -48,6 +52,7 @@ $originalAdapterIcon=if(Test-Path -LiteralPath $adapterIcon){[IO.File]::ReadAllB
 $launchTest=Join-Path $core 'adapters/screenshot/finish_launch_windows_test.go'
 if(Test-Path $launchTest){throw 'Unexpected existing launch regression test'}
 try {
+[IO.File]::AppendAllText($coreStyle,"`n"+$appearance,[Text.UTF8Encoding]::new($false))
 & (Join-Path $PSScriptRoot 'prepare-installer-icon.ps1') -CoreRoot $core -IconPath (Join-Path $repo 'assets/Screenshot.ico')
 & (Join-Path $PSScriptRoot 'prepare-installer-launch.ps1') -CoreRoot $core
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'installer_launch_windows_test.go') -Destination $launchTest
@@ -55,6 +60,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'installer_launch_windows_test.g
 if($LASTEXITCODE){throw 'Shared installer build failed'}
 if($TestUI){& (Join-Path $core 'test-ui.ps1') -OutputDirectory (Join-Path $repo '.tmp/installer-review')}
 } finally {
+ [IO.File]::WriteAllBytes($coreStyle,$originalStyle)
  Remove-Item -LiteralPath $launchTest -Force -ErrorAction SilentlyContinue
  [IO.File]::WriteAllBytes($coreIcon,$originalIcon)
  [IO.File]::WriteAllBytes($coreWindowIcon,$originalWindowIcon)

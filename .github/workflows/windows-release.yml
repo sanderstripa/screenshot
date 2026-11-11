@@ -1,7 +1,7 @@
 name: Screenshot Windows release
 on:
   push:
-    branches: [main, screenshot-connect-0.8.0]
+    branches: [main, codex/screenshot-installer-soulu-appearance]
     paths-ignore: [release-candidate.json, '.github/workflows/publish-verified.yml']
   workflow_dispatch:
 permissions:
@@ -38,12 +38,15 @@ jobs:
       - name: Build and verify shared CONNECT Installer
         shell: pwsh
         run: |
-          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '0.8.0' -OutFile "$PWD/build/Release/Screenshot-0.8.0-x64.exe" -TestUI
+          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '0.8.1' -OutFile "$PWD/build/Release/Screenshot-0.8.1-x64.exe" -TestUI
+      - name: Verify installer appearance and unchanged layout
+        shell: pwsh
+        run: node scripts/test-installer-appearance.cjs
       - name: Verify all embedded application and installer icon sizes
         shell: pwsh
         run: |
           python -m pip install Pillow==11.3.0
-          python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-0.8.0-x64.exe build/Release/Screenshot.exe
+          python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-0.8.1-x64.exe build/Release/Screenshot.exe
           if($LASTEXITCODE){throw 'Embedded icon verification failed'}
       - name: Verify visible settings in both themes
         run: python scripts/test_settings_render.py build/Release/Screenshot.exe test-results/settings-render
@@ -56,26 +59,29 @@ jobs:
         if: always()
         with:
           name: Screenshot-UI-review
-          path: test-results/settings-render
+          path: |
+            test-results/settings-render
+            test-results/installer-appearance
+            .tmp/installer-review
       - name: Build release payload
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          Copy-Item ".\build\Release\Screenshot-0.8.0-x64.exe" ".\dist\Screenshot-0.8.0-x64.exe" -Force
+          Copy-Item ".\build\Release\Screenshot-0.8.1-x64.exe" ".\dist\Screenshot-0.8.1-x64.exe" -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Screenshot-Windows-x64
-          path: dist/Screenshot-0.8.0-x64.exe
-      - name: Publish verified 0.8.0 Connect interface
+          path: dist/Screenshot-0.8.1-x64.exe
+      - name: Publish verified 0.8.1 Connect interface
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.8.0 *> $null
+          gh release view v0.8.1 *> $null
           if ($LASTEXITCODE -eq 0) { throw 'Refusing to overwrite an existing release' }
-          $files = @('dist/Screenshot-0.8.0-x64.exe')
+          $files = @('dist/Screenshot-0.8.1-x64.exe')
           $sums = foreach ($file in $files) { "$((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($file))" }
           $sums | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii
-          gh release create v0.8.0 dist/Screenshot-0.8.0-x64.exe SHA256SUMS.txt --target $env:GITHUB_SHA --latest --title 'Screenshot v0.8.0' --notes-file RELEASE_NOTES.md
+          gh release create v0.8.1 dist/Screenshot-0.8.1-x64.exe SHA256SUMS.txt --target $env:GITHUB_SHA --latest --title 'Screenshot v0.8.1' --notes-file RELEASE_NOTES.md
           if ($LASTEXITCODE -ne 0) { throw 'Verified release publication failed' }
