@@ -55,6 +55,7 @@ try {
 [IO.File]::AppendAllText($coreStyle,"`n"+$appearance,[Text.UTF8Encoding]::new($false))
 & (Join-Path $PSScriptRoot 'prepare-installer-icon.ps1') -CoreRoot $core -IconPath (Join-Path $repo 'assets/Screenshot.ico')
 & (Join-Path $PSScriptRoot 'prepare-installer-launch.ps1') -CoreRoot $core
+& (Join-Path $PSScriptRoot 'prepare-vc-runtime.ps1') -CoreRoot $core
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'installer_launch_windows_test.go') -Destination $launchTest
 & (Join-Path $core 'build.ps1') -Product 'screenshot' -PayloadPath $PayloadPath -Version $Version -OutFile $OutFile -ExtensionPath $ExtensionPath -ExpectedExecutable $ExpectedExecutable -ProductCommit $sourceCommit -Go $Go
 if($LASTEXITCODE){throw 'Shared installer build failed'}

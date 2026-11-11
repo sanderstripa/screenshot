@@ -79,9 +79,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view v1.8.2 *> $null
-          if ($LASTEXITCODE -eq 0) { throw 'Refusing to overwrite an existing release' }
+          $releaseExists=($LASTEXITCODE -eq 0)
           $files = @('dist/Screenshot-1.8.2-Release-x64.exe')
           $sums = foreach ($file in $files) { "$((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($file))" }
           $sums | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii
-          gh release create v1.8.2 dist/Screenshot-1.8.2-Release-x64.exe SHA256SUMS.txt --target $env:GITHUB_SHA --latest --title 'Screenshot v1.8.2' --notes-file RELEASE_NOTES.md
+          if($releaseExists){
+            gh release upload v1.8.2 dist/Screenshot-1.8.2-Release-x64.exe SHA256SUMS.txt --clobber
+            if($LASTEXITCODE){throw 'Updated installer upload failed'}
+            gh api -X PATCH repos/sanderstripa/screenshot/git/refs/tags/v1.8.2 -f sha=$env:GITHUB_SHA -F force=true
+            if($LASTEXITCODE){throw 'Release tag update failed'}
+            gh release edit v1.8.2 --notes-file RELEASE_NOTES.md --latest
+          }else{
+            gh release create v1.8.2 dist/Screenshot-1.8.2-Release-x64.exe SHA256SUMS.txt --target $env:GITHUB_SHA --latest --title 'Screenshot v1.8.2' --notes-file RELEASE_NOTES.md
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Verified release publication failed' }
