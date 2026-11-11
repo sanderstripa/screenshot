@@ -23,7 +23,7 @@ const {chromium}=require(path.join(core,'node_modules/playwright'));
  const geometry=()=>page.locator('.shell,header,main,footer,section,button,input,h1,h2,.ribbon,.switch').evaluateAll(es=>es.map(e=>({id:e.id,rect:e.getBoundingClientRect().toJSON()})));
  const before=await geometry();const style=await page.addStyleTag({content:overlay});
  assert.deepEqual(await geometry(),before,theme+' '+stage+' geometry');
- assert.equal(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor),theme==='light'?'rgb(246, 246, 248)':'rgb(8, 9, 11)');
+ assert.equal(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor),theme==='light'?'rgb(252, 252, 253)':'rgb(8, 9, 11)');
  await page.locator('#close').hover();
  const hover=await page.locator('#close').evaluate(e=>getComputedStyle(e,'::before').backgroundColor);
  assert.notEqual(hover,'rgba(0, 0, 0, 0)');

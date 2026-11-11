@@ -1,8 +1,3 @@
-Screenshot 0.8.1
+# Screenshot 1.8.2
 
-Обновлено только оформление установщика:
-- Светлая и тёмная палитры по образцу Soulu.
-- Выделения выбранных кнопок, состояния наведения, нажатия и фокуса.
-- Кнопки «Свернуть» и «Закрыть» с круглыми подсветками; у крестика розово-красная подсветка.
-
-Расположение элементов, тексты, шаги установки и функции Screenshot сохранены.
+Unified installer appearance: Screencast light palette and selected controls, Screenshot dark background, white dark-theme selection, centered caption feedback and underlined Back hover. Correct application and installer versions; canonical Release-x64 installer filename. Existing installation options and behavior retained.

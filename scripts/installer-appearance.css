@@ -1,38 +1,86 @@
-/* Screenshot installer appearance. Soulu ui/styles.css, ui/theme.css and
-   ui/toolbar-ui.css are the palette and caption feedback reference.
-   Keep the shared installer's typography, layout and interaction contracts. */
+/* Soulu palette and caption states; preserve the shared installer's layout and typography. */
 :root {
-  --bg:#f6f6f8; --text:#292a2e; --muted:#797b81; --line:#0000001f;
-  --field:#fffffff2; --button:#292a2e; --inverse:#fff;
-  --soft:#00000012; --selected:#e0e0e2d1; --selected-line:#797b81;
-  --blue:#0879e6; --blue-soft:#007aff1f;
-  --hover:color-mix(in srgb,var(--text) 8%,transparent);
-  --pressed:color-mix(in srgb,var(--text) 14%,transparent);
-  --danger:color-mix(in srgb,#ef4964 22%,var(--bg));
-  --danger-pressed:color-mix(in srgb,#ef4964 34%,var(--bg));
+  --bg: #fcfcfd;
+  --text: #242628;
+  --muted: #73767b;
+  --line: #e6e7e9;
+  --button: #0671ff;
+  --inverse: #fff;
+  --field: #f3f4f5;
+  --hover: #ededef;
+  --caption-hover: color-mix(in srgb, var(--text) 8%, transparent);
+  --caption-pressed: color-mix(in srgb, var(--text) 14%, transparent);
+  --caption-danger: color-mix(in srgb, #ef4964 22%, var(--bg));
+  --caption-danger-pressed: color-mix(in srgb, #ef4964 34%, var(--bg));
+  color-scheme: light;
 }
 :root[data-theme=dark] {
-  --bg:#08090b; --text:#eeeeef; --muted:#96979d; --line:#ffffff18;
-  --field:#191a1e; --button:#eeeeef; --inverse:#08090b;
-  --soft:#ffffff0b; --selected:#25262b; --selected-line:#7c8491;
-  --blue:#409cff; --blue-soft:#2589ff2b;
+  --bg: #08090b;
+  --button: #e3e4df;
+  --inverse: #08090b;
+  --text: #e6e7e9;
+  --muted: #9a9da3;
+  --line: #35363b;
+  --field: #28292d;
+  --hover: #303136;
+  color-scheme: dark;
 }
-button:hover:not(:disabled){filter:none}
-.primary:hover:not(:disabled){background:color-mix(in srgb,var(--button) 90%,var(--bg))}
-.primary:active:not(:disabled){background:color-mix(in srgb,var(--button) 80%,var(--bg))}
-.outlined:hover:not(:disabled),.choices button:hover:not(:disabled){background:var(--hover)}
-.outlined:active:not(:disabled),.choices button:active:not(:disabled){background:var(--pressed)}
-.choices button[aria-pressed=true]{background:var(--selected);border-color:var(--selected-line);color:var(--text)}
-.text-button:hover:not(:disabled){color:var(--text)}
-.text-button:active:not(:disabled){color:var(--blue)}
-button:focus-visible,input:focus-visible,input:focus-visible+.switch{outline-color:var(--blue)}
-/* Caption hit areas stay unchanged; only the feedback and drawn glyph change. */
-.tools button{position:relative;display:grid;place-items:center;color:var(--text);font-size:0}
-.tools button::before{content:'';position:absolute;width:28px;height:28px;border-radius:50%;background:transparent;pointer-events:none}
-.tools button:hover:not(:disabled)::before{background:var(--hover)}
-.tools button:active:not(:disabled)::before{background:var(--pressed)}
-.tools #close:hover:not(:disabled)::before{background:var(--danger)}
-.tools #close:active:not(:disabled)::before{background:var(--danger-pressed)}
-.tools button::after{content:'';position:relative;width:20px;height:20px;background:currentColor;pointer-events:none;mask:center/20px 20px no-repeat var(--caption-icon)}
-#minimize{--caption-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10h10' fill='none' stroke='black' stroke-width='1.25' stroke-linecap='round'/%3E%3C/svg%3E")}
-#close{--caption-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 5 10 10M15 5 5 15' fill='none' stroke='black' stroke-width='1.25' stroke-linecap='round'/%3E%3C/svg%3E")}
+button:focus-visible, input:focus-visible,
+input:focus-visible + .switch { outline-color: var(--button); }
+.choices button[aria-pressed=true] {
+  border-color: var(--button);
+  background: var(--button);
+  color: var(--inverse);
+}
+button:hover:not(:disabled):not(.primary):not(.text-button):not(.tools button):not([aria-pressed=true]) {
+  background: var(--hover);
+  filter: none;
+}
+.text-button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
+  filter: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+progress { color: var(--button); }
+progress::-webkit-progress-value { background: var(--button); }
+.tools button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  font-size: 0;
+}
+.tools button::before {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 120ms ease;
+}
+.tools button:hover:not(:disabled) { filter: none; }
+.tools button:hover:not(:disabled)::before { background: var(--caption-hover); }
+.tools button:active:not(:disabled)::before { background: var(--caption-pressed); }
+.tools #close:hover:not(:disabled)::before { background: var(--caption-danger); }
+.tools #close:active:not(:disabled)::before { background: var(--caption-danger-pressed); }
+.tools button::after {
+  content: "";
+  position: relative;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--caption-icon) center / contain no-repeat;
+}
+.tools #minimize {
+  --caption-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M3 8h10' fill='none' stroke='black' stroke-width='1.25' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.tools #close {
+  --caption-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 4 8 8M12 4l-8 8' fill='none' stroke='black' stroke-width='1.25' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Explicit centers are independent of caption font and hit-area dimensions. */
+.tools button::before { left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none; }
+.tools button::after { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); pointer-events:none; }
