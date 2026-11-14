@@ -1,5 +1,5 @@
-# Screenshot 1.8.2
+# Screenshot 1.8.3
 
-Unified installer appearance: Screencast light palette and selected controls, Screenshot dark background, white dark-theme selection, centered caption feedback and underlined Back hover. Correct application and installer versions; canonical Release-x64 installer filename. Existing installation options and behavior retained.
-
-The installer checks the Microsoft Visual C++ v14 x64 runtime and installs the bundled, Microsoft-signed prerequisite only when missing or outdated. Windows may request administrator approval for this system component.
+- Replaced the square app icon with the approved circular artwork throughout the application, installer, repository, desktop and Start menu shortcuts, and installed-program entry.
+- All nine Windows icon sizes use the same approved artwork. Existing content-addressed shortcut icons refresh on installation.
+- Screen capture behavior and application interface are unchanged.

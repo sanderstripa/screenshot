@@ -12,7 +12,10 @@ function svg(app,on=false,tray=false,n=1024){
  if(app==='torrent')glyph=`<path d="M 512 210 V 642 M 310 543 L 512 745 L 714 543 M 276 838 H 748" fill="none" stroke="url(#ink)" stroke-width="${w+4}" stroke-linecap="round" stroke-linejoin="round"/>`;
  return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">${defs}${tile}${tray?'<g transform="translate(-120 -120) scale(1.24)">':''}${glyph}${tray?'</g>':''}</svg>`;
 }
-async function render(app,on,tray,n){return sharp(Buffer.from(svg(app,on,tray,n))).resize(n,n).png().toBuffer()}
+async function render(app,on,tray,n){
+ if(app==='screenshot')return sharp(path.join(root,'assets/Screenshot-approved-original.png')).resize(n,n).png().toBuffer();
+ return sharp(Buffer.from(svg(app,on,tray,n))).resize(n,n).png().toBuffer()
+}
 async function write(p,b){fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,b)}
 function ico(frames){let off=6+16*frames.length;const h=Buffer.alloc(off);h.writeUInt16LE(1,2);h.writeUInt16LE(frames.length,4);frames.forEach(([n,b],i)=>{let p=6+i*16;h[p]=h[p+1]=n%256;h.writeUInt16LE(1,p+4);h.writeUInt16LE(32,p+6);h.writeUInt32LE(b.length,p+8);h.writeUInt32LE(off,p+12);off+=b.length});return Buffer.concat([h,...frames.map(x=>x[1])])}
 (async()=>{
@@ -31,7 +34,8 @@ for(const app of ['screenshot']){
   for(const p of ['build/tray/off-light.png','build/tray/off-dark.png'])await out(p,await render(app,false,true,32));await out('build/tray/on.png',await render(app,true,true,32));
   await out('build/tray/logo.svg',svg(app));await out('build/tray/logo-monochrome.svg',svg(app,false,true).replaceAll('url(#ink)','currentColor').replaceAll('#f2f5f7','currentColor'));
  } else if(app==='screenshot'){
-  await out('assets/Screenshot.svg',svg(app));await out('assets/Screenshot.png',master);await out('assets/Screenshot-approved-original.png',master);await out('assets/Screenshot.ico',icon);
+  // Preserve the approved circular master and its SVG wrapper; package only ICO frames.
+  await out('assets/Screenshot.ico',icon);
  } else if(app==='screencast'){
   await out('assets/Screencast.svg',svg(app));await out('assets/Screencast.ico',icon);await out('assets/Screencast-256.png',p256);for(const n of [2048,4096])await out(`assets/Screencast-${n}.png`,await render(app,false,false,n));await out('assets/Screencast-master.png',await render(app,false,false,4096));
   for(const v of ['0.2.5','0.2.6','0.4.3','0.4.4','0.4.5','0.4.6','0.4.7'])await out(`assets/Screencast-shell-${v}.ico`,icon);
