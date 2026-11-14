@@ -25,9 +25,11 @@ const {chromium}=require(path.join(core,'node_modules/playwright'));
  assert.deepEqual(await geometry(),before,theme+' '+stage+' geometry');
  assert.equal(await page.locator('body').evaluate(e=>getComputedStyle(e).backgroundColor),theme==='light'?'rgb(252, 252, 253)':'rgb(8, 9, 11)');
  await page.locator('#close').hover();
+ await page.waitForTimeout(150); // Let the 120ms caption transition reach its final color.
  const hover=await page.locator('#close').evaluate(e=>getComputedStyle(e,'::before').backgroundColor);
  assert.notEqual(hover,'rgba(0, 0, 0, 0)');
  await page.mouse.down();
+ await page.waitForTimeout(150);
  assert.notEqual(await page.locator('#close').evaluate(e=>getComputedStyle(e,'::before').backgroundColor),hover);
  await page.mouse.up();
  await page.screenshot({path:path.join(out,theme+'-'+stage+'.png')});
