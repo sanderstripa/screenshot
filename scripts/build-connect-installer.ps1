@@ -7,6 +7,11 @@ param(
 )
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$payloadVersion=[Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path -LiteralPath $PayloadPath).Path)
+if($payloadVersion.ProductVersion -ne $Version -or $payloadVersion.FileVersion -ne "$Version.0"){
+ throw "Payload version mismatch: product=$($payloadVersion.ProductVersion), file=$($payloadVersion.FileVersion), installer=$Version"
+}
+
 if(!$CoreRoot){
  $localCore=Join-Path $repo 'installer-core'
  if(Test-Path (Join-Path $localCore 'build.ps1')){$CoreRoot=$localCore}

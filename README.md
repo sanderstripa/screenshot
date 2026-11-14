@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-0.8.0-x64.exe"><strong>Download for Windows</strong></a>
+  <a href="https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-1.8.5-Release-x64.exe"><strong>Download for Windows</strong></a>
   · <a href="https://github.com/sanderstripa/screenshot/releases">Release notes</a>
 </p>
 
@@ -32,7 +32,7 @@ The Connect / Soulu interface keeps capture behavior intact. Print Screen consen
 
 ## Install
 
-Download [**Screenshot-0.8.0-x64.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-0.8.0-x64.exe), run it and click **Install**. The current release is [**v0.8.0**](https://github.com/sanderstripa/screenshot/releases/tag/v0.8.0), with the supplied high-resolution Screenshot icon throughout the app and installer.
+Download [**Screenshot-1.8.5-Release-x64.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-1.8.5-Release-x64.exe), run it and click **Install**. The current release is [**v1.8.5**](https://github.com/sanderstripa/screenshot/releases/tag/v1.8.5), with the supplied high-resolution Screenshot icon throughout the app and installer.
 
 Installation runs under your Windows account without administrator privileges. It installs to `%LOCALAPPDATA%\Programs\Screenshot` and registers automatic startup at login. Open **Settings** on the welcome screen to choose System/Light/Dark and RU/EN for the entire wizard. After installation, choose a hotkey. Print Screen is the default; Screenshot asks before changing its built-in Windows action. Windows may require signing out for that change to apply.
 
