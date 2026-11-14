@@ -38,7 +38,7 @@ jobs:
       - name: Build and verify shared CONNECT Installer
         shell: pwsh
         run: |
-          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '1.8.3' -OutFile "$PWD/build/Release/Screenshot-1.8.3-Release-x64.exe" -TestUI
+          ./scripts/build-connect-installer.ps1 -PayloadPath "$PWD/build/Release/Screenshot.exe" -Version '1.8.4' -OutFile "$PWD/build/Release/Screenshot-1.8.4-Release-x64.exe" -TestUI
       - name: Verify installer appearance and unchanged layout
         shell: pwsh
         run: node scripts/test-installer-appearance.cjs
@@ -46,7 +46,9 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install Pillow==11.3.0
-          python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-1.8.3-Release-x64.exe build/Release/Screenshot.exe
+          python scripts/verify_icon.py assets/Screenshot-installer.ico build/Release/Screenshot-1.8.4-Release-x64.exe
+          if($LASTEXITCODE){throw 'Installer icon verification failed'}
+          python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot.exe
           if($LASTEXITCODE){throw 'Embedded icon verification failed'}
       - name: Verify visible settings in both themes
         run: python scripts/test_settings_render.py build/Release/Screenshot.exe test-results/settings-render
@@ -67,29 +69,29 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          Copy-Item ".\build\Release\Screenshot-1.8.3-Release-x64.exe" ".\dist\Screenshot-1.8.3-Release-x64.exe" -Force
+          Copy-Item ".\build\Release\Screenshot-1.8.4-Release-x64.exe" ".\dist\Screenshot-1.8.4-Release-x64.exe" -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Screenshot-Windows-x64
-          path: dist/Screenshot-1.8.3-Release-x64.exe
-      - name: Publish verified 1.8.3 Connect interface
+          path: dist/Screenshot-1.8.4-Release-x64.exe
+      - name: Publish verified 1.8.4 installer icon
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v1.8.3 *> $null
+          gh release view v1.8.4 *> $null
           $releaseExists=($LASTEXITCODE -eq 0)
-          $files = @('dist/Screenshot-1.8.3-Release-x64.exe')
+          $files = @('dist/Screenshot-1.8.4-Release-x64.exe')
           $sums = foreach ($file in $files) { "$((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($file))" }
           $sums | Set-Content -LiteralPath SHA256SUMS.txt -Encoding ascii
           if($releaseExists){
-            gh release upload v1.8.3 dist/Screenshot-1.8.3-Release-x64.exe SHA256SUMS.txt --clobber
+            gh release upload v1.8.4 dist/Screenshot-1.8.4-Release-x64.exe SHA256SUMS.txt --clobber
             if($LASTEXITCODE){throw 'Updated installer upload failed'}
-            gh api -X PATCH repos/sanderstripa/screenshot/git/refs/tags/v1.8.3 -f sha=$env:GITHUB_SHA -F force=true
+            gh api -X PATCH repos/sanderstripa/screenshot/git/refs/tags/v1.8.4 -f sha=$env:GITHUB_SHA -F force=true
             if($LASTEXITCODE){throw 'Release tag update failed'}
-            gh release edit v1.8.3 --notes-file RELEASE_NOTES.md --latest
+            gh release edit v1.8.4 --notes-file RELEASE_NOTES.md --latest
           }else{
-            gh release create v1.8.3 dist/Screenshot-1.8.3-Release-x64.exe SHA256SUMS.txt --target $env:GITHUB_SHA --latest --title 'Screenshot v1.8.3' --notes-file RELEASE_NOTES.md
+            gh release create v1.8.4 dist/Screenshot-1.8.4-Release-x64.exe SHA256SUMS.txt --target $env:GITHUB_SHA --latest --title 'Screenshot v1.8.4' --notes-file RELEASE_NOTES.md
           }
           if ($LASTEXITCODE -ne 0) { throw 'Verified release publication failed' }

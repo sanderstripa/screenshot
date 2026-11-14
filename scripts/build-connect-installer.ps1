@@ -38,8 +38,8 @@ $coreIcon=Join-Path $core 'products/screenshot.ico'
 $originalIcon=[IO.File]::ReadAllBytes($coreIcon)
 $coreWindowIcon=Join-Path $core 'core/web/assets/icon.png'
 $originalWindowIcon=[IO.File]::ReadAllBytes($coreWindowIcon)
-Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot.ico') -Destination $coreIcon -Force
-Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot.png') -Destination $coreWindowIcon -Force
+Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot-installer.ico') -Destination $coreIcon -Force
+Copy-Item -LiteralPath (Join-Path $repo 'assets/Screenshot-installer.png') -Destination $coreWindowIcon -Force
 # Apply only Screenshot's appearance to the pinned shared UI, then restore it.
 $coreStyle=Join-Path $core 'core/web/style.css'
 $originalStyle=[IO.File]::ReadAllBytes($coreStyle)
