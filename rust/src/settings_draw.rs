@@ -278,7 +278,7 @@ impl Drawing {
             p.ink,
         );
         self.text(
-            "1.8.6 RE",
+            "1.8.7 RE",
             rect(340.0, 515.0, 432.0, 539.0),
             BODY,
             p.ink,

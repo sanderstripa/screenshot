@@ -175,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "screenshot-re"
-version = "1.8.6"
+version = "1.8.7"
 dependencies = [
  "embed-resource",
  "png",

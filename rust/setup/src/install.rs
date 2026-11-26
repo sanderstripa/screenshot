@@ -31,26 +31,26 @@ const SETTINGS: &str = r"Software\SanderStripa\Screenshot";
 const KEYBOARD: &str = r"Control Panel\Keyboard";
 const APP: &str = "Screenshot.exe";
 const REMOVE: &str = "Uninstall.exe";
-pub const VERSION: &str = "1.8.6 RE";
+pub const VERSION: &str = "1.8.7 RE";
 pub static PROGRESS: AtomicU32 = AtomicU32::new(0);
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Options {
-    path: String,
-    desktop: bool,
-    start_menu: bool,
-    language: String,
-    theme: String,
+pub struct Options {
+    pub path: String,
+    pub desktop: bool,
+    pub start_menu: bool,
+    pub language: String,
+    pub theme: String,
 }
 
 #[derive(Deserialize)]
-struct Shortcut {
-    vk: u32,
+pub struct Shortcut {
+    pub vk: u32,
     #[serde(rename = "mod")]
-    modifiers: u32,
-    replace: bool,
+    pub modifiers: u32,
+    pub replace: bool,
 }
 
 pub struct Installer {
@@ -107,7 +107,7 @@ impl Installer {
         Ok(json!({ "ok": true }))
     }
 
-    fn install(&mut self, options: Options) -> Result<()> {
+    pub fn install(&mut self, options: Options) -> Result<()> {
         PROGRESS.store(0, Ordering::Relaxed);
         if !matches!(options.language.as_str(), "ru" | "en")
             || !matches!(options.theme.as_str(), "light" | "dark")
@@ -175,7 +175,7 @@ impl Installer {
         Ok(())
     }
 
-    fn remove(&mut self) -> Result<()> {
+    pub fn remove(&mut self) -> Result<()> {
         let path = validate(&self.directory.to_string_lossy())?;
         let app = owned(&path, APP)?;
         stop(&app)?;
@@ -190,7 +190,7 @@ impl Installer {
         Ok(())
     }
 
-    fn save_hotkey(&mut self, shortcut: Shortcut) -> Result<Value> {
+    pub fn save_hotkey(&mut self, shortcut: Shortcut) -> Result<Value> {
         let Shortcut {
             vk,
             modifiers,
@@ -227,7 +227,7 @@ impl Installer {
         Ok(json!({ "relogin": !available(vk, modifiers) }))
     }
 
-    fn open(&self) -> Result<()> {
+    pub fn open(&self) -> Result<()> {
         Command::new(self.directory.join(APP))
             .arg("--settings")
             .current_dir(&self.directory)
@@ -246,14 +246,22 @@ impl Installer {
 
     pub fn cleanup(&self) -> Result<()> {
         let uninstall = owned(&self.directory, REMOVE)?;
-        let script = format!(
-            "Wait-Process -Id {} -ErrorAction SilentlyContinue; Remove-Item -LiteralPath {} -Force; if (@(Get-ChildItem -LiteralPath {} -Force).Count -eq 0) {{ Remove-Item -LiteralPath {} -Force }}",
-            std::process::id(),
-            quote(&uninstall),
-            quote(&self.directory),
-            quote(&self.directory),
-        );
-        powershell(&script).spawn()?;
+        let mut cleanup = tempfile::Builder::new()
+            .prefix("Screenshot-cleanup-")
+            .suffix(".exe")
+            .tempfile()?;
+        use std::io::Write;
+        cleanup.write_all(include_bytes!("../payload/cleanup.exe"))?;
+        let file = cleanup.into_temp_path();
+        let filename = file.to_path_buf();
+        Command::new(&filename)
+            .args([
+                std::process::id().to_string().as_ref(),
+                uninstall.as_os_str(),
+            ])
+            .creation_flags(0x0800_0000)
+            .spawn()?;
+        file.keep()?;
         Ok(())
     }
 }
@@ -450,23 +458,11 @@ fn shortcuts(app: &Path, desktop: bool, start_menu: bool) -> Result<()> {
     Ok(())
 }
 
-fn quote(path: &Path) -> String {
-    format!("'{}'", path.to_string_lossy().replace('\'', "''"))
-}
-
-fn powershell(script: &str) -> Command {
-    let mut command = Command::new("powershell.exe");
-    command
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .creation_flags(0x0800_0000);
-    command
-}
-
 fn runtime_installed() -> bool {
     let reg = RegKey::predef(HKEY_LOCAL_MACHINE);
     [KEY_WOW64_32KEY, KEY_WOW64_64KEY].into_iter().any(|view| {
         reg.open_subkey_with_flags(
-            r"SOFTWARE\Microsoft\VisualStudio.0\VC\Runtimesd",
+            r"SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64",
             KEY_QUERY_VALUE | view,
         )
         .is_ok_and(|runtime| {

@@ -28,21 +28,21 @@ jobs:
           if ($LASTEXITCODE) { throw 'Installer assets checkout failed' }
           $payload = 'rust/setup/payload'
           New-Item -ItemType Directory -Force $payload | Out-Null
-          Copy-Item -Recurse installer-reference/installer-core/core/web "$payload/web"
-          Copy-Item installer-reference/installer-core/adapters/screenshot/ribbon.png "$payload/web/assets/mobius.png" -Force
-          [IO.File]::AppendAllText("$PWD/$payload/web/style.css", "`n" + (Get-Content scripts/installer-appearance.css -Raw))
+          Copy-Item installer-reference/installer-core/adapters/screenshot/ribbon.png "$payload/ribbon.png"
+          rustc --edition 2024 --target x86_64-pc-windows-msvc -C opt-level=z -C target-feature=+crt-static rust/setup/cleanup.rs -o "$payload/cleanup.exe"
+          if ($LASTEXITCODE) { throw 'Rust uninstaller cleanup build failed' }
           Copy-Item rust/target/x86_64-pc-windows-msvc/release/screenshot-re.exe "$payload/Screenshot.exe"
           Invoke-WebRequest 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile "$payload/vc_redist.x64.exe"
           $signature = Get-AuthenticodeSignature "$payload/vc_redist.x64.exe"
           if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation(?:,|$)') { throw 'Microsoft runtime signature verification failed' }
           cargo build --manifest-path rust/setup/Cargo.toml --locked --release --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE) { throw 'Rust installer build failed' }
-          Copy-Item rust/setup/target/x86_64-pc-windows-msvc/release/screenshot-setup-re.exe Screenshot-1.8.6-RE-Setup-x64.exe
+          Copy-Item rust/setup/target/x86_64-pc-windows-msvc/release/screenshot-setup-re.exe Screenshot-1.8.7-RE-Setup-x64.exe
       - name: Verify installer artwork and embedded application
         run: |
           python -m pip install Pillow
           if ($LASTEXITCODE) { throw 'Pillow installation failed' }
-          python scripts/verify_icon.py assets/Screenshot-installer.ico Screenshot-1.8.6-RE-Setup-x64.exe
+          python scripts/verify_icon.py assets/Screenshot-installer.ico Screenshot-1.8.7-RE-Setup-x64.exe
           if ($LASTEXITCODE) { throw 'Installer icon verification failed' }
           python scripts/verify_icon.py assets/Screenshot.ico rust/setup/payload/Screenshot.exe
           if ($LASTEXITCODE) { throw 'Application icon verification failed' }
@@ -50,20 +50,20 @@ jobs:
           if ($p.ExitCode) { throw 'Application PNG and clipboard check failed' }
       - name: Exercise the real installer and uninstaller
         run: |
-          npm install --no-save playwright
-          if ($LASTEXITCODE) { throw 'Playwright installation failed' }
-          node rust/setup/test-windows.cjs
+          cargo tree --manifest-path rust/setup/Cargo.toml --locked | Tee-Object -Variable dependencies
+          if ($LASTEXITCODE -or ($dependencies -match 'wry|webview2|tao')) { throw 'Installer dependencies check failed' }
+          python rust/setup/test-windows.py
           if ($LASTEXITCODE) { throw 'Installer lifecycle check failed' }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Screenshot-1.8.6-RE-Setup-x64
+          name: Screenshot-1.8.7-RE-Setup-x64
           path: |
-            Screenshot-1.8.6-RE-Setup-x64.exe
+            Screenshot-1.8.7-RE-Setup-x64.exe
             installer-review
       - name: Publish installer for review
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.8.6-re Screenshot-1.8.6-RE-Setup-x64.exe --target $env:GITHUB_SHA --prerelease --latest=false --title 'Screenshot v1.8.6 RE' --notes 'Rust installer and application for Windows x64.'
+          gh release create v1.8.7-re Screenshot-1.8.7-RE-Setup-x64.exe --target $env:GITHUB_SHA --prerelease --latest=false --title 'Screenshot v1.8.7 RE' --notes 'Native Rust installer and application for Windows x64.'
           if ($LASTEXITCODE) { throw 'Installer publication failed' }
