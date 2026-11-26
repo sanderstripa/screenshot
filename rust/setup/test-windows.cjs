@@ -26,7 +26,18 @@ async function run(exe, args, port, test) {
     const context = browser.contexts()[0];
     const page = context.pages()[0] || await context.waitForEvent('page');
     await page.locator('#primary').waitFor();
-    await test(page);
+    page.on('pageerror', error => console.error(error));
+    page.on('requestfailed', req => console.error(req.url(), req.failure()));
+    page.on('response', async response => {
+      if (response.url().includes('/api/') && response.status() >= 400)
+        console.error(response.url(), response.status(), await response.text().catch(() => ''));
+    });
+    try { await test(page); }
+    catch (error) {
+      console.error(await page.locator('body').innerText().catch(() => 'No page'));
+      await page.screenshot({path: artifacts + '/failure-' + port + '.png'}).catch(() => {});
+      throw error;
+    }
     assert.equal(await Promise.race([
       new Promise(resolve => child.once('exit', resolve)),
       sleep(10000).then(() => child.exitCode),
@@ -45,7 +56,8 @@ async function main() {
     await page.locator('#path').fill(target);
     await page.screenshot({path: artifacts + '/settings-dark-en.png'});
     await page.locator('#accept').click();
-    await page.locator('#hotkey').waitFor({timeout: 90000});
+    await page.locator('#hotkey, #failure').filter({visible: true}).first().waitFor({timeout: 45000});
+    assert.equal(await page.locator('#failure').isVisible(), false, await page.locator('#error').textContent());
     assert.deepEqual(fs.readFileSync(path.join(target, 'Screenshot.exe')), fs.readFileSync('rust/setup/payload/Screenshot.exe'));
     await page.locator('#keyField').click();
     await page.keyboard.press('PrintScreen');
