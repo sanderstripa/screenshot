@@ -483,24 +483,73 @@ fn ensure_runtime() -> Result<()> {
     let temp = tempfile::tempdir()?;
     let package = temp.path().join("vc_redist.x64.exe");
     fs::write(&package, include_bytes!("../payload/vc_redist.x64.exe"))?;
-    let script = format!(
-        r#"
-$ErrorActionPreference = 'Stop'
-$file = {}
-$sig = Get-AuthenticodeSignature -LiteralPath $file
-if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation(?:,|$)') {{ throw 'Invalid Microsoft Visual C++ signature' }}
-$p = Start-Process -FilePath $file -ArgumentList '/install','/quiet','/norestart' -Verb RunAs -Wait -PassThru
-if ($p.ExitCode -notin @(0, 3010, 1638)) {{ throw "Microsoft Visual C++ installation failed: $($p.ExitCode)" }}
-"#,
-        quote(&package)
-    );
-    let result = powershell(&script).output()?;
-    if !result.status.success() || !runtime_installed() {
+    use std::mem::size_of;
+    use windows::Win32::{
+        Foundation::{HANDLE, HWND},
+        Security::WinTrust::*,
+        UI::Shell::{
+            SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, ShellExecuteExW,
+        },
+    };
+    use windows_sys::Win32::{
+        Foundation::WAIT_OBJECT_0,
+        System::Threading::{GetExitCodeProcess, WaitForSingleObject},
+    };
+    let file_name = wide(&package);
+    let verb = wide("runas");
+    let arguments = wide("/install /quiet /norestart");
+    let mut file = WINTRUST_FILE_INFO {
+        cbStruct: size_of::<WINTRUST_FILE_INFO>() as u32,
+        pcwszFilePath: PCWSTR(file_name.as_ptr()),
+        hFile: HANDLE::default(),
+        pgKnownSubject: std::ptr::null_mut(),
+    };
+    let mut policy = WINTRUST_ACTION_GENERIC_VERIFY_V2;
+    let mut trust = WINTRUST_DATA {
+        cbStruct: size_of::<WINTRUST_DATA>() as u32,
+        dwUIChoice: WTD_UI_NONE,
+        dwUnionChoice: WTD_CHOICE_FILE,
+        Anonymous: WINTRUST_DATA_0 { pFile: &mut file },
+        ..Default::default()
+    };
+    let status = unsafe {
+        WinVerifyTrust(
+            HWND::default(),
+            &mut policy,
+            (&mut trust as *mut WINTRUST_DATA).cast(),
+        )
+    };
+    if status != 0 {
         return Err(format!(
-            "Microsoft Visual C++ x64 Runtime installation failed: {}",
-            String::from_utf8_lossy(&result.stderr)
+            "Invalid Microsoft Visual C++ signature (0x{:08X})",
+            status as u32
         )
         .into());
+    }
+    let mut launch = SHELLEXECUTEINFOW {
+        cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,
+        fMask: SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC,
+        lpVerb: PCWSTR(verb.as_ptr()),
+        lpFile: PCWSTR(file_name.as_ptr()),
+        lpParameters: PCWSTR(arguments.as_ptr()),
+        nShow: SW_SHOWNORMAL,
+        ..Default::default()
+    };
+    unsafe {
+        ShellExecuteExW(&mut launch)?;
+    }
+    let handle = launch.hProcess.0;
+    let mut code = 0_u32;
+    let success = unsafe {
+        let completed = WaitForSingleObject(handle, u32::MAX) == WAIT_OBJECT_0;
+        let read = completed && GetExitCodeProcess(handle, &mut code) != 0;
+        CloseHandle(handle);
+        read && matches!(code, 0 | 3010 | 1638)
+    };
+    if !success || !runtime_installed() {
+        return Err(
+            format!("Microsoft Visual C++ x64 Runtime installation failed ({code})").into(),
+        );
     }
     Ok(())
 }
