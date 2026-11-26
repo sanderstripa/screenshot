@@ -17,7 +17,7 @@ mod app {
         time::Duration,
     };
 
-    use screenshot_re::{
+    use screenshot::{
         desktop,
         hotkey::{self, Key},
         image::{Image, Rect},

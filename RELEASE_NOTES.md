@@ -1,6 +1,3 @@
-# Screenshot 1.8.5
+Screenshot 2.0.0 is the first stable release of the native Rust application and installer for Windows x64. It retains the appearance, capture workflow, and settings of 1.8.7.
 
-- Fixed the application displaying 1.8.3 after installing release 1.8.4.
-- Synchronized application file/product versions, installer, Windows uninstall registration and download links at 1.8.5.
-- Added a packaging check that rejects an application whose embedded version differs from the installer version.
-- Existing application and installer artwork and screen capture behavior are preserved.
+Download `Screenshot-2.0.0-Release-x64.exe` to install or update Screenshot. The classic implementation remains available in [archive/classic](https://github.com/sanderstripa/screenshot/tree/archive/classic).

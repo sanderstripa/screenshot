@@ -278,7 +278,7 @@ impl Drawing {
             p.ink,
         );
         self.text(
-            "1.8.7 RE",
+            env!("CARGO_PKG_VERSION"),
             rect(340.0, 515.0, 432.0, 539.0),
             BODY,
             p.ink,

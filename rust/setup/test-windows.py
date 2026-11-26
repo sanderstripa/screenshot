@@ -24,7 +24,7 @@ u.GetClientRect.argtypes = [w.HWND, c.POINTER(w.RECT)]
 u.SetForegroundWindow.argtypes = [w.HWND]
 u.SetProcessDpiAwarenessContext(c.c_void_p(-4))
 
-setup = Path("Screenshot-1.8.7-RE-Setup-x64.exe").resolve()
+setup = Path("Screenshot-2.0.0-Release-x64.exe").resolve()
 payload = Path("rust/setup/payload/Screenshot.exe")
 target = Path(os.environ["RUNNER_TEMP"]) / "Screenshot Native Setup"
 review = Path("installer-review")

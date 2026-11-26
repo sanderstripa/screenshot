@@ -31,7 +31,7 @@ const SETTINGS: &str = r"Software\SanderStripa\Screenshot";
 const KEYBOARD: &str = r"Control Panel\Keyboard";
 const APP: &str = "Screenshot.exe";
 const REMOVE: &str = "Uninstall.exe";
-pub const VERSION: &str = "1.8.7 RE";
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub static PROGRESS: AtomicU32 = AtomicU32::new(0);
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 

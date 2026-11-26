@@ -1,82 +1,16 @@
-<p align="center">
-  <img src="assets/Screenshot.png" width="128" height="128" alt="Screenshot icon">
-</p>
-
+<p align="center"><img src="assets/Screenshot.png" width="128" height="128" alt="Screenshot icon"></p>
 <h1 align="center">Screenshot</h1>
 
-<p align="center"><strong>Beautiful screenshots. One shortcut.</strong></p>
+Screenshot captures windows and screen regions on Windows. It saves a PNG to `Pictures\Screenshot` and copies the same image to the clipboard.
 
-<p align="center">
-  Windows 11 · Native app · PNG to clipboard and disk
-</p>
-
-<p align="center">
-  <a href="https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-1.8.5-Release-x64.exe"><strong>Download for Windows</strong></a>
-  · <a href="https://github.com/sanderstripa/screenshot/releases">Release notes</a>
-</p>
-
-Screenshot captures a visible window or any screen region, adds rounded corners and a soft shadow, and saves the same PNG to your clipboard and `%USERPROFILE%\Pictures\Screenshot`.
-
-## Features
-
-- **Click a window or drag a region.** Open the capture overlay with your chosen shortcut.
-- **Save and paste.** Every successful capture creates a PNG file and puts the identical PNG in the clipboard.
-- **Ready at login.** A small native background app with automatic startup and no tray icon.
-- **A native Windows 11 installer.** Light/dark themes, a RU/EN language switch, real rounded corners, crisp Montserrat text and high-resolution artwork.
-- **One compact window.** Open Screenshot from the Start menu to change the shortcut, open the screenshot folder, choose a theme or language, and view the installed version.
-- **Theme and language settings.** System/Light/Dark and Russian/English apply and save immediately. The Torrent / Soulu palette is used with the existing embedded Montserrat.
-- **Your shortcut.** Replacing Windows' Print Screen action requires explicit confirmation.
-- **Safe updates.** The installer replaces a running previous version and keeps your shortcut settings.
-
-The Connect / Soulu interface keeps capture behavior intact. Print Screen consent slides down from the top over a blurred main window. See [interface details](docs/CONNECT_UI.md).
-
-## Install
-
-Download [**Screenshot-1.8.5-Release-x64.exe**](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-1.8.5-Release-x64.exe), run it and click **Install**. The current release is [**v1.8.5**](https://github.com/sanderstripa/screenshot/releases/tag/v1.8.5), with the supplied high-resolution Screenshot icon throughout the app and installer.
-
-Installation runs under your Windows account without administrator privileges. It installs to `%LOCALAPPDATA%\Programs\Screenshot` and registers automatic startup at login. Open **Settings** on the welcome screen to choose System/Light/Dark and RU/EN for the entire wizard. After installation, choose a hotkey. Print Screen is the default; Screenshot asks before changing its built-in Windows action. Windows may require signing out for that change to apply.
+[Download Screenshot 2.0.0 for Windows x64](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-2.0.0-Release-x64.exe)
 
 ## Use
 
-- Assigned key — open the capture overlay.
-- Click an application window — capture the visible window.
-- Drag with the mouse — capture any region.
-- Escape or top **×** — cancel.
-- Ctrl+V — paste the styled PNG with rounded corners and shadow.
-- Every capture also saves the identical PNG to `%USERPROFILE%\Pictures\Screenshot`.
+Run the installer and follow the setup wizard to choose a capture shortcut. Press the shortcut, then click a window or drag to select a region. Open Screenshot to change the shortcut, theme, or language.
 
-## Requirements and verification
+## Build
 
-Windows 11, 64-bit. The downloadable installer is self-contained; Python and developer tools are not required to use the app.
+The native Rust application lives in `rust/` and the installer in `rust/setup/`. The [Windows build workflow](.github/workflows/rust-installer.yml) stages the application and installer assets, checks the executable and tests installation, updates, and removal.
 
-Tested on Windows 11 build 26100, including installation and updates, capture output, the native installer at 100–250% scaling, and the embedded icon resources. See the [Windows test report](WINDOWS_TEST_REPORT.md) for checks and their scope.
-
-## Native build
-
-Requires Visual Studio 2022 / Windows SDK. The supplied approved artwork is embedded directly, with nine ICO resolutions and a full-resolution PNG for the installer. Builds never redraw it. **No Inno Setup.**
-
-```powershell
-cmake -S . -B build -A x64
-cmake --build build --config Release --target ScreenshotSetup
-.\build\Release\Screenshot-Setup.exe
-```
-
-The setup binary embeds the native Screenshot executable. It directly performs per-user installation, safe updates of running older versions, registry registration, and uninstallation. Windows Actions additionally verify a repeat install, an update over a live process, installed hash, and uninstall behavior.
-
-Real desktop regression checks (Python with Pillow):
-
-```powershell
-python scripts/test_ui.py build/Release/Screenshot-Setup.exe test-results/ui
-python scripts/test_capture.py "$env:LOCALAPPDATA/Programs/Screenshot/Screenshot.exe" test-results/capture
-python scripts/verify_icon.py assets/Screenshot.ico build/Release/Screenshot-Setup.exe build/Release/Screenshot.exe
-```
-
-The UI test opens every native setup stage at 100%, 125%, 150%, 200% and 250% scaling. The capture test opens a known-color native window, exercises click and drag capture, decodes the saved PNG and compares its bytes to the PNG in the Windows clipboard.
-
-## Notes
-
-Screenshots are captured from visible desktop pixels, so occluded windows, HDR and protected media may not render perfectly. Other applications' keyboard shortcuts cannot be forcibly overridden. The installer is unsigned and may be flagged by Windows SmartScreen.
-
-Source code MIT licensed. Original icon and branding © Sander Stripa.
-
-Made by [Sander Stripa](https://github.com/sanderstripa). [About Screenshot](ABOUT.md).
+The [classic source](https://github.com/sanderstripa/screenshot/tree/archive/classic) and [previous releases](https://github.com/sanderstripa/screenshot/releases) remain available.
