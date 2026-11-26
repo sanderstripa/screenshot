@@ -31,7 +31,9 @@ jobs:
           if ($LASTEXITCODE) { throw "Rust release build failed" }
       - name: Verify packaged application
         run: |
-          $exe = 'rust/target/x86_64-pc-windows-msvc/release/screenshot-re.exe'
+          New-Item -ItemType Directory -Force portable | Out-Null
+          $exe = 'portable/Screenshot.exe'
+          Copy-Item rust/target/x86_64-pc-windows-msvc/release/screenshot-re.exe $exe
           foreach ($arg in @('--self-test', '--self-test-output')) {
             $p = Start-Process -FilePath $exe -ArgumentList $arg -Wait -PassThru
             if ($p.ExitCode) { throw "Executable test $arg failed with $($p.ExitCode)" }
@@ -46,8 +48,6 @@ jobs:
           if ($LASTEXITCODE) { throw "Window and region capture verification failed" }
       - name: Package portable ZIP
         run: |
-          New-Item -ItemType Directory -Force portable | Out-Null
-          Copy-Item rust/target/x86_64-pc-windows-msvc/release/screenshot-re.exe portable/Screenshot.exe
           Copy-Item LICENSE portable/LICENSE.txt
           Copy-Item assets/fonts/OFL.txt portable/Montserrat-OFL.txt
           Compress-Archive -Path portable/* -DestinationPath Screenshot-v1.8.5-RE-Portable-x64.zip
