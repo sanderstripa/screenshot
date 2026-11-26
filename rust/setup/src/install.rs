@@ -546,10 +546,29 @@ fn ensure_runtime() -> Result<()> {
         CloseHandle(handle);
         read && matches!(code, 0 | 3010 | 1638)
     };
-    if !success || !runtime_installed() {
+    // The redistributable reports 1638 when an equivalent or newer product is
+    // registered under a different MSI. Check the actual system runtime in that case.
+    if !success || !(runtime_installed() || code == 1638 && runtime_loadable()) {
         return Err(
             format!("Microsoft Visual C++ x64 Runtime installation failed ({code})").into(),
         );
     }
     Ok(())
+}
+
+fn runtime_loadable() -> bool {
+    use windows_sys::Win32::{
+        Foundation::FreeLibrary,
+        System::LibraryLoader::{LOAD_LIBRARY_SEARCH_SYSTEM32, LoadLibraryExW},
+    };
+    ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"]
+        .into_iter()
+        .all(|dll| unsafe {
+            let module = LoadLibraryExW(
+                wide(dll).as_ptr(),
+                std::ptr::null_mut(),
+                LOAD_LIBRARY_SEARCH_SYSTEM32,
+            );
+            !module.is_null() && FreeLibrary(module) != 0
+        })
 }
