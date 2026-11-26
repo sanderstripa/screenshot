@@ -425,11 +425,16 @@ fn shortcuts(app: &Path, desktop: bool, start_menu: bool) -> Result<()> {
             let raw = SHGetKnownFolderPath(&folder, KF_FLAG_DEFAULT, None)?;
             let path = raw.to_string();
             windows::Win32::System::Com::CoTaskMemFree(Some(raw.0.cast()));
-            let link = PathBuf::from(path?).join("Screenshot.lnk");
+            let mut link = PathBuf::from(path?);
+            if folder == FOLDERID_Programs {
+                link.push("Screenshot");
+            }
+            let link = link.join("Screenshot.lnk");
             if !enabled {
                 ignore_missing(fs::remove_file(link))?;
                 continue;
             }
+            fs::create_dir_all(link.parent().ok_or("missing shortcut directory")?)?;
             let shell: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
             shell.SetPath(PCWSTR(wide(app).as_ptr()))?;
             shell.SetArguments(PCWSTR(wide("--settings").as_ptr()))?;

@@ -1,6 +1,6 @@
 101 ICON "../../assets/Screenshot-installer.ico"
-1 VERSIONINFO
 201 RCDATA "../../assets/Screenshot-installer.png"
+1 VERSIONINFO
  FILEVERSION 1,8,6,0
  PRODUCTVERSION 1,8,6,0
  FILEOS 0x40004L
