@@ -39,7 +39,7 @@ async function run(exe, args, port, test) {
       throw error;
     }
     assert.equal(await Promise.race([
-      new Promise(resolve => child.once('exit', resolve)),
+      child.exitCode === null ? new Promise(resolve => child.once('exit', resolve)) : Promise.resolve(child.exitCode),
       sleep(10000).then(() => child.exitCode),
     ]), 0, 'Installer failed to close');
   } finally {
@@ -66,7 +66,12 @@ async function main() {
     await page.screenshot({path: artifacts + '/print-screen.png'});
     await page.locator('#hotkeyCancel').click();
     await page.locator('#keyField').click();
-    await page.keyboard.press('F23');
+    const input = await page.context().newCDPSession(page);
+    for (const type of ['keyDown', 'keyUp']) {
+      await input.send('Input.dispatchKeyEvent', {type, key:'F23', code:'F23',
+        windowsVirtualKeyCode:134, nativeVirtualKeyCode:134});
+    }
+    assert.equal(await page.locator('#keyField').textContent(), 'F23');
     await page.locator('#hotkeyNext').click();
     await page.locator('#finish').waitFor();
     await page.screenshot({path: artifacts + '/finish.png'});
