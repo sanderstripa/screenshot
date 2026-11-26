@@ -15,7 +15,8 @@ u.FindWindowW.restype = w.HWND
 u.FindWindowExW.argtypes = [w.HWND, w.HWND, w.LPCWSTR, w.LPCWSTR]
 u.FindWindowExW.restype = w.HWND
 u.PostMessageW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
-u.SetWindowTextW.argtypes = [w.HWND, w.LPCWSTR]
+u.SendMessageW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
+u.SendMessageW.restype = w.LPARAM
 u.GetDpiForWindow.argtypes = [w.HWND]
 u.GetDpiForWindow.restype = w.UINT
 u.ClientToScreen.argtypes = [w.HWND, c.POINTER(w.POINT)]
@@ -78,7 +79,7 @@ def setting(name):
 
 
 def install(verify_settings):
-    with subprocess.Popen([str(setup)]) as process:
+    with open(review / "install-log.txt", "ab", buffering=0) as log, subprocess.Popen([str(setup)], stderr=log) as process:
         try:
             hwnd = window()
             shot(hwnd, "welcome" if verify_settings else "update", (252, 252, 253))
@@ -88,7 +89,8 @@ def install(verify_settings):
                 click(hwnd, 380, 130)
                 shot(hwnd, "settings-dark", (8, 9, 11))
                 edit = u.FindWindowExW(hwnd, None, "Edit", None)
-                assert edit and u.SetWindowTextW(edit, str(target))
+                text = c.create_unicode_buffer(str(target))
+                assert edit and u.SendMessageW(edit, 0x000C, 0, c.addressof(text))
                 click(hwnd, 150, 412)
             else:
                 click(hwnd, 150, 305)
@@ -110,6 +112,14 @@ def install(verify_settings):
             assert process.wait(timeout=10) == 0
             assert setting("ThemeMode") == 2
             assert setting("LanguageEN") == 1
+        except Exception:
+            print((review / "install-log.txt").read_text(errors="replace"), flush=True)
+            if process.poll() is None:
+                try:
+                    shot(hwnd, "install-failure", (8, 9, 11) if verify_settings else (252, 252, 253))
+                except Exception:
+                    pass
+            raise
         finally:
             if process.poll() is None:
                 process.kill()

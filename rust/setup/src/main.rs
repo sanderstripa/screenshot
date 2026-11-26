@@ -248,7 +248,7 @@ fn window() -> Result<(), String> {
             WS_EX_APPWINDOW,
             name.as_ptr(),
             wide("Screenshot").as_ptr(),
-            WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX,
+            WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN,
             work.left + (work.right - work.left - w) / 2,
             work.top + (work.bottom - work.top - h) / 2,
             w,
@@ -1137,6 +1137,7 @@ impl Setup {
                 Job::Launch => return true,
             },
             Err(error) => {
+                eprintln!("Screenshot setup: {error}");
                 if !matches!(job, Job::Launch) {
                     self.stage(Stage::Welcome);
                 }
