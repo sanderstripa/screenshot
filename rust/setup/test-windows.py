@@ -66,7 +66,7 @@ def shot(hwnd, name, background):
     assert u.ClientToScreen(hwnd, c.byref(origin))
     assert u.GetClientRect(hwnd, c.byref(bounds))
     scale = u.GetDpiForWindow(hwnd) / 96
-    assert (bounds.right, bounds.bottom) == (round(840 * scale), round(540 * scale))
+    assert (bounds.right, bounds.bottom) == (round(854 * scale), round(577 * scale))
     image = ImageGrab.grab(bbox=(origin.x, origin.y, origin.x + bounds.right, origin.y + bounds.bottom)).convert("RGB")
     image.save(review / f"{name}.png")
     assert image.getpixel((round(12 * scale), round(120 * scale))) == background
@@ -84,16 +84,16 @@ def install(verify_settings):
             hwnd = window()
             shot(hwnd, "welcome" if verify_settings else "update", (252, 252, 253))
             if verify_settings:
-                click(hwnd, 110, 358)
+                click(hwnd, 110, 383)
                 click(hwnd, 150, 130)
-                click(hwnd, 380, 130)
+                click(hwnd, 413, 130)
                 shot(hwnd, "settings-dark", (8, 9, 11))
                 edit = u.FindWindowExW(hwnd, None, "Edit", None)
                 text = c.create_unicode_buffer(str(target))
                 assert edit and u.SendMessageW(edit, 0x000C, 0, c.addressof(text))
                 click(hwnd, 150, 412)
             else:
-                click(hwnd, 150, 305)
+                click(hwnd, 150, 330)
             until(lambda: (target / "Uninstall.exe").exists(), "No installed uninstaller")
             until(lambda: (target / "Screenshot.exe").read_bytes() == payload.read_bytes(), "Installed payload differs")
             time.sleep(1)
@@ -101,13 +101,13 @@ def install(verify_settings):
             key(hwnd, 44, up=True)
             click(hwnd, 150, 311)
             shot(hwnd, "print-screen-confirmation", (8, 9, 11) if verify_settings else (252, 252, 253))
-            click(hwnd, 85, 243)
+            click(hwnd, 85, 268)
             click(hwnd, 150, 230)
             key(hwnd, 134)
             click(hwnd, 150, 311)
             until(lambda: setting("HotkeyVK") == 134, "F23 was not saved")
             shot(hwnd, "finish" if verify_settings else "update-finish", (8, 9, 11) if verify_settings else (252, 252, 253))
-            click(hwnd, 420, 335)
+            click(hwnd, 427, 317)
             until(lambda: u.FindWindowW("ScreenshotSettings", None), "App was not launched")
             assert process.wait(timeout=10) == 0
             assert setting("ThemeMode") == 2
@@ -131,11 +131,11 @@ uninstaller = target / "Uninstall.exe"
 with subprocess.Popen([str(uninstaller), "--uninstall"]) as process:
     try:
         hwnd = window()
-        click(hwnd, 140, 320)
+        click(hwnd, 140, 345)
         until(lambda: not (target / "Screenshot.exe").exists(), "Application was not removed")
         time.sleep(1)
         shot(hwnd, "removed", (252, 252, 253))
-        click(hwnd, 420, 360)
+        click(hwnd, 427, 341)
         assert process.wait(timeout=10) == 0
         until(lambda: not uninstaller.exists(), "Uninstaller did not clean up after exit")
     finally:

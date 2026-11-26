@@ -3,6 +3,9 @@ on:
   push:
     branches: [rust-edition]
     paths: ['rust/**', '.github/workflows/rust-installer.yml']
+concurrency:
+  group: screenshot-native-installer-rust-edition
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -65,5 +68,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $published = gh release view v1.8.7-re --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload v1.8.7-re Screenshot-1.8.7-RE-Setup-x64.exe --clobber
+            if ($LASTEXITCODE) { throw 'Installer update failed' }
+            gh api -X PATCH repos/$env:GITHUB_REPOSITORY/git/refs/tags/v1.8.7-re -f sha=$env:GITHUB_SHA -F force=true
+            if ($LASTEXITCODE) { throw 'Installer tag update failed' }
+            exit 0
+          }
           gh release create v1.8.7-re Screenshot-1.8.7-RE-Setup-x64.exe --target $env:GITHUB_SHA --prerelease --latest=false --title 'Screenshot v1.8.7 RE' --notes 'Native Rust installer and application for Windows x64.'
           if ($LASTEXITCODE) { throw 'Installer publication failed' }

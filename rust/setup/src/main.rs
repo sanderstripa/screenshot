@@ -25,8 +25,8 @@ use windows_sys::Win32::{
     UI::{HiDpi::*, Input::KeyboardAndMouse::*, WindowsAndMessaging::*},
 };
 
-const WIDTH: f32 = 840.0;
-const HEIGHT: f32 = 540.0;
+const WIDTH: f32 = 854.0;
+const HEIGHT: f32 = 577.0;
 const TIMER: usize = 20;
 const WM_MOUSELEAVE: u32 = 0x02a3;
 
@@ -368,7 +368,7 @@ impl Setup {
         let tr = |ru, en| self.tr(ru, en);
         match self.stage {
             Stage::Welcome => {
-                let y = if self.uninstall { 300.0 } else { 282.0 };
+                let y = if self.uninstall { 324.0 } else { 306.0 };
                 add(
                     Id::Primary,
                     rect(45.0, y, 228.0, 49.0),
@@ -389,11 +389,11 @@ impl Setup {
             Stage::Settings => {
                 add(
                     Id::Back,
-                    rect(735.0, 70.0, 60.0, 24.0),
+                    rect(777.0, 69.0, 60.0, 24.0),
                     tr("Назад", "Back"),
                     Kind::Text,
                 );
-                let x = if self.english { 120.0 } else { 95.0 };
+                let x = if self.english { 123.0 } else { 95.0 };
                 add(
                     Id::Ru,
                     rect(x, 116.0, 37.0, 28.0),
@@ -406,7 +406,7 @@ impl Setup {
                     "EN",
                     Kind::Choice(self.english),
                 );
-                let x = x + 184.0;
+                let x = if self.english { 340.0 } else { 310.0 };
                 add(
                     Id::Light,
                     rect(x, 116.0, if self.english { 48.0 } else { 69.0 }, 28.0),
@@ -416,7 +416,7 @@ impl Setup {
                 add(
                     Id::Dark,
                     rect(
-                        x + if self.english { 51.0 } else { 72.0 },
+                        x + if self.english { 50.0 } else { 72.0 },
                         116.0,
                         if self.english { 48.0 } else { 67.0 },
                         28.0,
@@ -425,28 +425,28 @@ impl Setup {
                     Kind::Choice(self.dark),
                 );
                 if !self.uninstall {
-                    let bw = if self.english { 75.0 } else { 91.0 };
+                    let bw = if self.english { 82.0 } else { 91.0 };
                     add(
                         Id::Path,
-                        rect(45.0, 184.0, 750.0 - bw - 10.0, 35.0),
+                        rect(45.0, 185.0, 764.0 - bw - 10.0, 35.0),
                         "",
                         Kind::Edit,
                     );
                     add(
                         Id::Browse,
-                        rect(795.0 - bw, 184.0, bw, 35.0),
+                        rect(809.0 - bw, 185.0, bw, 35.0),
                         tr("Выбрать…", "Browse…"),
                         Kind::Outline,
                     );
                     add(
                         Id::Desktop,
-                        rect(45.0, 232.0, 750.0, 38.0),
+                        rect(45.0, 233.0, 764.0, 38.0),
                         tr("Ярлык на рабочем столе", "Desktop shortcut"),
                         Kind::Toggle(self.desktop),
                     );
                     add(
                         Id::Menu,
-                        rect(45.0, 270.0, 750.0, 38.0),
+                        rect(45.0, 271.0, 764.0, 38.0),
                         tr("Ярлык в меню «Пуск»", "Start menu shortcut"),
                         Kind::Toggle(self.menu),
                     );
@@ -455,7 +455,7 @@ impl Setup {
                     Id::Accept,
                     rect(
                         45.0,
-                        if self.uninstall { 241.0 } else { 386.0 },
+                        if self.uninstall { 241.0 } else { 387.0 },
                         260.0,
                         49.0,
                     ),
@@ -486,36 +486,36 @@ impl Setup {
                 );
             }
             Stage::Confirm => {
-                let w = if self.english { 76.0 } else { 82.0 };
+                let w = if self.english { 70.0 } else { 82.0 };
                 add(
                     Id::Cancel,
-                    rect(45.0, 226.0, w, 34.0),
+                    rect(45.0, 251.0, w, 34.0),
                     tr("Отмена", "Cancel"),
                     Kind::Outline,
                 );
                 add(
                     Id::Replace,
-                    rect(50.0 + w, 218.0, 228.0, 49.0),
+                    rect(50.0 + w, 242.0, 228.0, 49.0),
                     tr("Да, заменить", "Yes, replace"),
                     Kind::Primary,
                 );
             }
             Stage::Finish => {
                 let y = if self.uninstall {
-                    338.0
+                    320.0
                 } else if self.relogin {
-                    326.0
+                    303.0
                 } else {
-                    312.25
+                    292.0
                 };
                 add(
                     Id::Done,
-                    rect(306.0, y, 228.0, 49.0),
+                    rect(313.0, y, 228.0, 49.0),
                     tr("Готово", "Done"),
                     Kind::Primary,
                 );
                 if !self.uninstall {
-                    let w = if self.english { 202.0 } else { 258.0 };
+                    let w = if self.english { 250.0 } else { 268.0 };
                     add(
                         Id::Launch,
                         rect((WIDTH - w) / 2.0, y + 64.0, w, 38.0),
@@ -532,18 +532,18 @@ impl Setup {
         if !self.error.is_empty() {
             add(
                 Id::Retry,
-                rect(45.0, 453.0, 100.0, 22.0),
+                rect(45.0, 490.0, 100.0, 22.0),
                 tr("Повторить", "Retry"),
                 Kind::Text,
             );
         }
         add(
             Id::Minimize,
-            rect(726.0, 21.0, 28.0, 30.0),
+            rect(740.0, 21.0, 28.0, 30.0),
             "",
             Kind::Caption,
         );
-        add(Id::Close, rect(767.0, 21.0, 28.0, 30.0), "", Kind::Caption);
+        add(Id::Close, rect(781.0, 21.0, 28.0, 30.0), "", Kind::Caption);
         controls
     }
 
@@ -556,11 +556,11 @@ impl Setup {
         let text = |value, area, size, weight, ink, align, spacing| {
             d.text(value, area, size, weight, ink, align, spacing)
         };
-        d.round(rect(0.5, 0.5, 839.0, 539.0), 0.0, None, Some(p.border));
-        d.line(45.0, 490.5, 795.0, 490.5, 1.0, p.border);
+        d.round(rect(0.5, 0.5, 853.0, 576.0), 0.0, None, Some(p.border));
+        d.line(45.0, 527.5, 809.0, 527.5, 1.0, p.border);
         text(
             "by CONNECT.",
-            rect(45.0, 491.0, 300.0, 48.0),
+            rect(45.0, 528.0, 300.0, 48.0),
             10.0,
             400,
             p.muted,
@@ -570,7 +570,7 @@ impl Setup {
         let version = format!("{} {VERSION}", tr("Версия", "Version"));
         text(
             &version,
-            rect(550.0, 491.0, 245.0, 48.0),
+            rect(550.0, 528.0, 259.0, 48.0),
             10.0,
             400,
             p.muted,
@@ -579,8 +579,8 @@ impl Setup {
         );
         match self.stage {
             Stage::Welcome => {
-                d.ribbon(rect(377.0, 61.0, 440.0, 365.0));
-                let y = if self.uninstall { 153.0 } else { 168.0 };
+                d.ribbon(rect(391.0, 61.0, 440.0, 365.0));
+                let y = if self.uninstall { 177.0 } else { 192.0 };
                 text(
                     if self.uninstall {
                         tr("УДАЛЕНИЕ", "UNINSTALLATION")
@@ -609,7 +609,7 @@ impl Setup {
                             "Ваши настройки и пользовательские данные сохранятся. Закройте приложение перед удалением.",
                             "Your settings and user data will be kept. Close the application before uninstalling.",
                         ),
-                        rect(45.0, 250.0, 310.0, 40.0),
+                        rect(45.0, 274.0, 310.0, 40.0),
                         12.0,
                         400,
                         p.muted,
@@ -659,11 +659,11 @@ impl Setup {
                 }
             }
             Stage::Installing => {
-                d.ribbon(rect(185.0, 69.0, 470.0, 305.0));
+                d.ribbon(rect(192.0, 69.0, 470.0, 305.0));
                 let progress = PROGRESS.load(Ordering::Relaxed).min(99) as f32 / 100.0;
-                d.round(rect(45.0, 435.0, 750.0, 4.0), 2.0, Some(p.border), None);
+                d.round(rect(45.0, 472.0, 764.0, 4.0), 2.0, Some(p.border), None);
                 d.round(
-                    rect(45.0, 435.0, 750.0 * progress, 4.0),
+                    rect(45.0, 472.0, 764.0 * progress, 4.0),
                     2.0,
                     Some(p.button),
                     None,
@@ -674,7 +674,7 @@ impl Setup {
                     } else {
                         tr("Установка…", "Installing…")
                     },
-                    rect(45.0, 451.0, 750.0, 15.0),
+                    rect(45.0, 488.0, 764.0, 15.0),
                     11.0,
                     400,
                     p.muted,
@@ -720,7 +720,7 @@ impl Setup {
                         "Заменить системное действие?",
                         "Replace the Windows action?",
                     ),
-                    rect(45.0, 146.0, 750.0, 29.0),
+                    rect(45.0, 146.0, 764.0, 29.0),
                     23.0,
                     500,
                     p.ink,
@@ -742,15 +742,15 @@ impl Setup {
             }
             Stage::Finish => {
                 let y = if self.uninstall {
-                    202.0
+                    215.0
                 } else if self.relogin {
-                    160.0
+                    177.0
                 } else {
-                    174.0
+                    188.0
                 };
                 text(
                     "Screenshot",
-                    rect(45.0, y, 750.0, 52.0),
+                    rect(45.0, y, 764.0, 52.0),
                     42.0,
                     500,
                     p.ink,
@@ -763,7 +763,7 @@ impl Setup {
                     } else {
                         tr("Установка завершена", "Installation complete")
                     },
-                    rect(45.0, y + 65.0, 750.0, 20.0),
+                    rect(45.0, y + 65.0, 764.0, 20.0),
                     14.0,
                     400,
                     p.ink,
@@ -776,7 +776,7 @@ impl Setup {
                             "Для активации Print Screen может потребоваться повторный вход в Windows.",
                             "Sign out and back in to activate Print Screen if needed.",
                         ),
-                        rect(45.0, 283.0, 750.0, 20.0),
+                        rect(45.0, 283.0, 764.0, 20.0),
                         10.0,
                         400,
                         p.muted,
@@ -787,11 +787,11 @@ impl Setup {
             }
         }
         if !self.error.is_empty() {
-            d.round(rect(45.0, 402.0, 750.0, 83.0), 0.0, Some(p.bg), None);
-            d.line(45.0, 402.5, 795.0, 402.5, 1.0, p.border);
+            d.round(rect(45.0, 439.0, 764.0, 83.0), 0.0, Some(p.bg), None);
+            d.line(45.0, 439.5, 809.0, 439.5, 1.0, p.border);
             text(
                 &self.error,
-                rect(45.0, 412.0, 750.0, 39.0),
+                rect(45.0, 449.0, 764.0, 39.0),
                 11.0,
                 400,
                 p.ink,
