@@ -1,6 +1,6 @@
 [package]
 name = "screenshot-re"
-version = "1.8.5"
+version = "1.8.6"
 edition = "2024"
 publish = false
 

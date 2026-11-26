@@ -3,8 +3,7 @@ on:
   push:
     branches: [rust-edition]
     paths:
-      - 'rust/**'
-      - '.github/workflows/rust-portable.yml'
+      - 'rust/src/image.rs'
 
 permissions:
   contents: read
