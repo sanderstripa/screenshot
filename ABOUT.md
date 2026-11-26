@@ -1,23 +1,11 @@
-<p align="center">
-  <img src="assets/Screenshot.png" width="112" height="112" alt="Screenshot icon">
-</p>
-
 # About Screenshot
 
-**Screenshot** · v0.6.10 · Windows 11 x64
+**Screenshot 2.0.0** · Windows x64
 
-Capture a visible window or screen region with a single keyboard shortcut. The resulting PNG, including soft shadow and subtle corner rounding, is saved to `%USERPROFILE%\Pictures\Screenshot` and copied to the clipboard.
+Capture a visible window or select a screen region with a keyboard shortcut. Screenshot saves a PNG with rounded corners and a soft shadow to `%USERPROFILE%\Pictures\Screenshot` and copies the same PNG to the clipboard.
 
-The app uses native C++17, Win32, Direct2D, DirectWrite and Windows Imaging Component. It is a small user-session background process without a tray icon, heavy frameworks, network access or telemetry.
+The application and installer are written in Rust and use native Windows APIs. The installer supports light and dark themes, Russian and English, custom installation paths, and hotkey selection. Existing preferences are preserved on update.
 
-The setup program has light and dark Windows UI themes and System/Light/Dark and RU/EN controls inside settings. It directly installs the application under the current user's profile, supports safe upgrade over a running previous version, and lets the user assign a hotkey after installation.
+[Download Screenshot 2.0.0](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-2.0.0-Release-x64.exe) · [Classic source](https://github.com/sanderstripa/screenshot/tree/archive/classic)
 
-Version 0.6.10 aligns installer settings with CONNECT typography, control sizes and spacing, removes the extra explanatory line and fixes path-field flicker during pointer movement. Custom installation folders and first-launch theme/language inheritance are retained.
-
-Screenshot includes the supplied Screenshot artwork in the application, installer and uninstaller: nine Windows icon resolutions and a full-resolution PNG for the installer. Windows refreshes its icon cache after installation to show the updated artwork.
-
-Windows 11 x64 is required. Installation runs without administrator privileges and registers startup at login. Replacing Windows' Print Screen action requires confirmation. The installer is self-contained and unsigned.
-
-[Download Screenshot](https://github.com/sanderstripa/screenshot/releases/latest/download/Screenshot-Setup.exe) · [Release notes](https://github.com/sanderstripa/screenshot/releases) · [Windows test report](WINDOWS_TEST_REPORT.md)
-
-Developer: **Sander Stripa**. Code MIT licensed. Original Screenshot name/visual artwork © 2026 Sander Stripa. Not affiliated with Apple or Microsoft.
+Developer **Sander Stripa**. Code MIT licensed. Original Screenshot name and artwork © 2026 Sander Stripa.
